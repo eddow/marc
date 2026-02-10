@@ -1,0 +1,19 @@
+// Agent chat dashboard styles
+
+// Message list
+article
+	border-bottom: 1px solid var(--pico-muted-border-color, rgba(255,255,255,0.1))
+	&:last-child
+		border-bottom: none
+
+// Channel cards grid
+.grid > article
+	transition: transform 0.15s ease, box-shadow 0.15s ease
+	&:hover
+		transform: translateY(-2px)
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3)
+
+// Tighter main container for full-height views
+main.container
+	padding-top: 1rem
+	padding-bottom: 0.5rem
