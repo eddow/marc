@@ -10,21 +10,21 @@ Provide a web UI to monitor and participate in the agent-to-agent (a2a) communic
 
 ### Server (minimal)
 
-A tiny **Fastify** (or Express) server (~50 lines) that:
+A tiny **Fastify** server (~50 lines) that:
 
 1. **`GET /api/channels`** — Returns all `channel:*` keys and their values as JSON.
 2. **`GET /api/channel/:name`** — Returns the value of a single channel key.
 3. **`POST /api/channel/:name`** — Appends a message to a channel (read → concat → write). Body: `{ "agent": "human", "message": "..." }`. The server formats it as `[YYYY-MM-DD HH:MM] [agent]: message` and appends.
 4. **`GET /api/channel/:name/stream`** — SSE endpoint that polls the channel every 2s and pushes diffs to the client (for live updates without full page refresh).
 
-Uses `ioredis` (or `redis` npm package) to talk to `localhost:6379`.
+Uses `ioredis` to talk to `localhost:6379`.
 
 ### Client (pounce app)
 
 A **pounce** application using:
 - `@pounce/core` — JSX, reactivity, `bindApp()`
-- `@pounce/kit/dom` — `Router`, `<A>`, `client`, `css`/`sass`
-- `@pounce/ui` — UI components (if dist is available; otherwise keep it minimal with core only)
+- `@pounce/kit` — `Router`, `<A>`, `client`, `css`/`sass`
+- `@pounce/ui` — UI components, `DisplayProvider`, `ThemeToggle`
 - `@pounce/adapter-pico` + `@picocss/pico` — PicoCSS for styling (lightweight, looks good out of the box)
 - `mutts` — reactive state
 
@@ -60,27 +60,12 @@ Redis ←→ Fastify API ←→ fetch/SSE ←→ mutts reactive state ←→ pou
 
 ### Dependencies
 
-```json
-{
-  "dependencies": {
-    "@pounce/core": "link:../pounce/packages/core",
-    "@pounce/kit": "link:../pounce/packages/kit",
-    "@pounce/ui": "link:../pounce/packages/ui",
-    "@pounce/adapter-pico": "link:../pounce/packages/adapters/pico",
-    "@picocss/pico": "^2",
-    "mutts": "link:../mutts",
-    "fastify": "^5",
-    "@fastify/cors": "^11",
-    "ioredis": "^5"
-  },
-  "devDependencies": {
-    "@pounce/plugin": "link:../pounce/packages/plugin",
-    "vite": "^7",
-    "typescript": "^5.9",
-    "sass": "^1.93"
-  }
-}
-```
+See `package.json` for the full list. Key points:
+
+- All pounce packages use `link:` to local workspace (dogfooding dist output)
+- Build plugin: `@pounce/core/plugin` (Babel transform for JSX reactivity) — no separate `@pounce/plugin`
+- Babel deps as devDeps (required by the core plugin at build time)
+- `ioredis` for the Fastify server's Redis connection
 
 ### File Structure
 
@@ -89,7 +74,8 @@ red-hist/
 ├── project.md          # This file
 ├── package.json
 ├── tsconfig.json
-├── vite.config.ts      # Vite dev server + pounce plugin + proxy /api → fastify
+├── LLM.md              # LLM cheat-sheet
+├── vite.config.ts      # Vite + @pounce/core/plugin + proxy /api → fastify
 ├── server/
 │   └── index.ts        # Fastify server (Redis ↔ HTTP bridge)
 ├── src/
@@ -105,6 +91,8 @@ red-hist/
 │   │   └── input-bar.tsx   # Message input + send
 │   └── styles/
 │       └── app.sass        # App-specific styles (agent colors, chat layout)
+├── docs/
+│   └── devops.md       # Deployment notes
 ├── index.html          # Vite entry HTML
 └── sandbox/            # Temp files
 ```
@@ -135,4 +123,4 @@ Or combine via Vite's `server.proxy` config pointing `/api` → `http://localhos
 - [ ] Channel archiving — button to snapshot a channel to a timestamped key
 - [ ] Agent activity timeline — visual timeline of stream events
 - [ ] Syntax highlighting for code blocks in messages
-- [ ] Dark mode toggle (PicoCSS supports `data-theme="dark"`)
+- [ ] Dark mode toggle — `DisplayProvider` + `ThemeToggle` from `@pounce/ui` are ready, just need wiring

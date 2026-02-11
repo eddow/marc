@@ -37,23 +37,26 @@ importers:
         version: link:../mutts
     devDependencies:
       '@babel/core':
-        specifier: ^7
+        specifier: ^7.29.0
         version: 7.29.0
       '@babel/plugin-proposal-decorators':
-        specifier: ^7
+        specifier: ^7.29.0
         version: 7.29.0(@babel/core@7.29.0)
       '@babel/plugin-transform-react-jsx':
-        specifier: ^7
+        specifier: ^7.28.6
         version: 7.28.6(@babel/core@7.29.0)
       '@babel/plugin-transform-typescript':
-        specifier: ^7
+        specifier: ^7.28.6
         version: 7.28.6(@babel/core@7.29.0)
-      '@pounce/plugin':
-        specifier: link:../pounce/packages/plugin
-        version: link:../pounce/packages/plugin
+      '@babel/types':
+        specifier: ^7.29.0
+        version: 7.29.0
+      '@types/babel__core':
+        specifier: ^7.20.5
+        version: 7.20.5
       '@types/node':
-        specifier: ^24
-        version: 24.10.12
+        specifier: ^25.1.0
+        version: 25.1.0
       sass:
         specifier: ^1.93
         version: 1.97.3
@@ -65,10 +68,10 @@ importers:
         version: 5.9.3
       vite:
         specifier: ^7
-        version: 7.3.1(@types/node@24.10.12)(sass@1.97.3)(tsx@4.21.0)
+        version: 7.3.1(@types/node@25.1.0)(sass@1.97.3)(tsx@4.21.0)
       vite-plugin-dts:
-        specifier: ^4
-        version: 4.5.4(@types/node@24.10.12)(rollup@4.57.1)(typescript@5.9.3)(vite@7.3.1(@types/node@24.10.12)(sass@1.97.3)(tsx@4.21.0))
+        specifier: ^4.5.3
+        version: 4.5.4(@types/node@25.1.0)(rollup@4.57.1)(typescript@5.9.3)(vite@7.3.1(@types/node@25.1.0)(sass@1.97.3)(tsx@4.21.0))
 
 packages:
 
@@ -698,11 +701,23 @@ packages:
   '@types/argparse@1.0.38':
     resolution: {integrity: sha512-ebDJ9b0e702Yr7pWgB0jzm+CX4Srzz8RcXtLJDJB+BSccqMa36uyH/zUsSYao5+BD1ytv3k3rPYCq4mAE1hsXA==}
 
+  '@types/babel__core@7.20.5':
+    resolution: {integrity: sha512-qoQprZvz5wQFJwMDqeseRXWv3rqMvhgpbXFfVyWhbx9X47POIA6i/+dXefEmZKoAgOaTdaIgNSMqMIU61yRyzA==}
+
+  '@types/babel__generator@7.27.0':
+    resolution: {integrity: sha512-ufFd2Xi92OAVPYsy+P4n7/U7e68fex0+Ee8gSG9KX7eo084CWiQ4sdxktvdl0bOPupXtVJPY19zk6EwWqUQ8lg==}
+
+  '@types/babel__template@7.4.4':
+    resolution: {integrity: sha512-h/NUaSyG5EyxBIp8YRxo4RMe2/qQgvyowRwVMzhYhBCONbW8PUsg4lkFMrhgZhUe5z3L3MiLDuvyJ/CaPa2A8A==}
+
+  '@types/babel__traverse@7.28.0':
+    resolution: {integrity: sha512-8PvcXf70gTDZBgt9ptxJ8elBeBjcLOAcOtoO/mPJjtji1+CdGbHgm77om1GrsPxsiE+uXIpNSK64UYaIwQXd4Q==}
+
   '@types/estree@1.0.8':
     resolution: {integrity: sha512-dWHzHa2WqEXI/O1E9OjrocMTKJl2mSrEolh1Iomrv6U+JuNwaHXsXx9bLu5gG7BUWFIN0skIQJQ/L1rIex4X6w==}
 
-  '@types/node@24.10.12':
-    resolution: {integrity: sha512-68e+T28EbdmLSTkPgs3+UacC6rzmqrcWFPQs1C8mwJhI/r5Uxr0yEuQotczNRROd1gq30NGxee+fo0rSIxpyAw==}
+  '@types/node@25.1.0':
+    resolution: {integrity: sha512-t7frlewr6+cbx+9Ohpl0NOTKXZNV9xHRmNOvql47BFJKcEG1CxtxlPEEe+gR9uhVWM4DwhnvTF110mIL4yP9RA==}
 
   '@volar/language-core@2.4.28':
     resolution: {integrity: sha512-w4qhIJ8ZSitgLAkVay6AbcnC7gP3glYM3fYwKV3srj8m494E3xtrCv6E+bWviiK/8hs6e6t1ij1s2Endql7vzQ==}
@@ -1651,23 +1666,23 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
-  '@microsoft/api-extractor-model@7.32.2(@types/node@24.10.12)':
+  '@microsoft/api-extractor-model@7.32.2(@types/node@25.1.0)':
     dependencies:
       '@microsoft/tsdoc': 0.16.0
       '@microsoft/tsdoc-config': 0.18.0
-      '@rushstack/node-core-library': 5.19.1(@types/node@24.10.12)
+      '@rushstack/node-core-library': 5.19.1(@types/node@25.1.0)
     transitivePeerDependencies:
       - '@types/node'
 
-  '@microsoft/api-extractor@7.56.3(@types/node@24.10.12)':
+  '@microsoft/api-extractor@7.56.3(@types/node@25.1.0)':
     dependencies:
-      '@microsoft/api-extractor-model': 7.32.2(@types/node@24.10.12)
+      '@microsoft/api-extractor-model': 7.32.2(@types/node@25.1.0)
       '@microsoft/tsdoc': 0.16.0
       '@microsoft/tsdoc-config': 0.18.0
-      '@rushstack/node-core-library': 5.19.1(@types/node@24.10.12)
+      '@rushstack/node-core-library': 5.19.1(@types/node@25.1.0)
       '@rushstack/rig-package': 0.6.0
-      '@rushstack/terminal': 0.21.0(@types/node@24.10.12)
-      '@rushstack/ts-command-line': 5.2.0(@types/node@24.10.12)
+      '@rushstack/terminal': 0.21.0(@types/node@25.1.0)
+      '@rushstack/ts-command-line': 5.2.0(@types/node@25.1.0)
       diff: 8.0.3
       lodash: 4.17.23
       minimatch: 10.1.2
@@ -1835,7 +1850,7 @@ snapshots:
   '@rollup/rollup-win32-x64-msvc@4.57.1':
     optional: true
 
-  '@rushstack/node-core-library@5.19.1(@types/node@24.10.12)':
+  '@rushstack/node-core-library@5.19.1(@types/node@25.1.0)':
     dependencies:
       ajv: 8.13.0
       ajv-draft-04: 1.0.0(ajv@8.13.0)
@@ -1846,28 +1861,28 @@ snapshots:
       resolve: 1.22.11
       semver: 7.5.4
     optionalDependencies:
-      '@types/node': 24.10.12
+      '@types/node': 25.1.0
 
-  '@rushstack/problem-matcher@0.1.1(@types/node@24.10.12)':
+  '@rushstack/problem-matcher@0.1.1(@types/node@25.1.0)':
     optionalDependencies:
-      '@types/node': 24.10.12
+      '@types/node': 25.1.0
 
   '@rushstack/rig-package@0.6.0':
     dependencies:
       resolve: 1.22.11
       strip-json-comments: 3.1.1
 
-  '@rushstack/terminal@0.21.0(@types/node@24.10.12)':
+  '@rushstack/terminal@0.21.0(@types/node@25.1.0)':
     dependencies:
-      '@rushstack/node-core-library': 5.19.1(@types/node@24.10.12)
-      '@rushstack/problem-matcher': 0.1.1(@types/node@24.10.12)
+      '@rushstack/node-core-library': 5.19.1(@types/node@25.1.0)
+      '@rushstack/problem-matcher': 0.1.1(@types/node@25.1.0)
       supports-color: 8.1.1
     optionalDependencies:
-      '@types/node': 24.10.12
+      '@types/node': 25.1.0
 
-  '@rushstack/ts-command-line@5.2.0(@types/node@24.10.12)':
+  '@rushstack/ts-command-line@5.2.0(@types/node@25.1.0)':
     dependencies:
-      '@rushstack/terminal': 0.21.0(@types/node@24.10.12)
+      '@rushstack/terminal': 0.21.0(@types/node@25.1.0)
       '@types/argparse': 1.0.38
       argparse: 1.0.10
       string-argv: 0.3.2
@@ -1876,9 +1891,30 @@ snapshots:
 
   '@types/argparse@1.0.38': {}
 
+  '@types/babel__core@7.20.5':
+    dependencies:
+      '@babel/parser': 7.29.0
+      '@babel/types': 7.29.0
+      '@types/babel__generator': 7.27.0
+      '@types/babel__template': 7.4.4
+      '@types/babel__traverse': 7.28.0
+
+  '@types/babel__generator@7.27.0':
+    dependencies:
+      '@babel/types': 7.29.0
+
+  '@types/babel__template@7.4.4':
+    dependencies:
+      '@babel/parser': 7.29.0
+      '@babel/types': 7.29.0
+
+  '@types/babel__traverse@7.28.0':
+    dependencies:
+      '@babel/types': 7.29.0
+
   '@types/estree@1.0.8': {}
 
-  '@types/node@24.10.12':
+  '@types/node@25.1.0':
     dependencies:
       undici-types: 7.16.0
 
@@ -2460,9 +2496,9 @@ snapshots:
     dependencies:
       punycode: 2.3.1
 
-  vite-plugin-dts@4.5.4(@types/node@24.10.12)(rollup@4.57.1)(typescript@5.9.3)(vite@7.3.1(@types/node@24.10.12)(sass@1.97.3)(tsx@4.21.0)):
+  vite-plugin-dts@4.5.4(@types/node@25.1.0)(rollup@4.57.1)(typescript@5.9.3)(vite@7.3.1(@types/node@25.1.0)(sass@1.97.3)(tsx@4.21.0)):
     dependencies:
-      '@microsoft/api-extractor': 7.56.3(@types/node@24.10.12)
+      '@microsoft/api-extractor': 7.56.3(@types/node@25.1.0)
       '@rollup/pluginutils': 5.3.0(rollup@4.57.1)
       '@volar/typescript': 2.4.28
       '@vue/language-core': 2.2.0(typescript@5.9.3)
@@ -2473,13 +2509,13 @@ snapshots:
       magic-string: 0.30.21
       typescript: 5.9.3
     optionalDependencies:
-      vite: 7.3.1(@types/node@24.10.12)(sass@1.97.3)(tsx@4.21.0)
+      vite: 7.3.1(@types/node@25.1.0)(sass@1.97.3)(tsx@4.21.0)
     transitivePeerDependencies:
       - '@types/node'
       - rollup
       - supports-color
 
-  vite@7.3.1(@types/node@24.10.12)(sass@1.97.3)(tsx@4.21.0):
+  vite@7.3.1(@types/node@25.1.0)(sass@1.97.3)(tsx@4.21.0):
     dependencies:
       esbuild: 0.27.3
       fdir: 6.5.0(picomatch@4.0.3)
@@ -2488,7 +2524,7 @@ snapshots:
       rollup: 4.57.1
       tinyglobby: 0.2.15
     optionalDependencies:
-      '@types/node': 24.10.12
+      '@types/node': 25.1.0
       fsevents: 2.3.3
       sass: 1.97.3
       tsx: 4.21.0

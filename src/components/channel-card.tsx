@@ -1,5 +1,5 @@
 import { compose } from '@pounce/core'
-import { client } from '@pounce/kit/dom'
+import { client } from '@pounce/kit'
 import { parseMessages } from '../state'
 
 type ChannelCardProps = {

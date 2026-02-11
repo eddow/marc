@@ -1,5 +1,5 @@
 import { effect } from 'mutts'
-import { A } from '@pounce/kit/dom'
+import { A } from '@pounce/kit'
 import { channels, fetchChannel, subscribeChannel, parseMessages, settings, setAgentName } from '../state'
 import Message from '../components/message'
 import InputBar from '../components/input-bar'

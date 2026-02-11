@@ -3,6 +3,13 @@
 	"version": "1.0.0",
 	"private": true,
 	"type": "module",
+	"description": "Browser-based dashboard for Redis agent communication channels",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/eddow/red-hist.git"
+	},
+	"author": "fmdm",
+	"license": "MIT",
 	"scripts": {
 		"dev": "vite",
 		"server": "node --import tsx server/index.ts",
@@ -10,28 +17,29 @@
 		"preview": "vite preview"
 	},
 	"dependencies": {
+		"@fastify/cors": "^11",
+		"@picocss/pico": "^2",
+		"@pounce/adapter-pico": "link:../pounce/packages/adapters/pico",
 		"@pounce/core": "link:../pounce/packages/core",
 		"@pounce/kit": "link:../pounce/packages/kit",
 		"@pounce/ui": "link:../pounce/packages/ui",
-		"@pounce/adapter-pico": "link:../pounce/packages/adapters/pico",
-		"@picocss/pico": "^2",
-		"mutts": "link:../mutts",
 		"fastify": "^5",
-		"@fastify/cors": "^11",
-		"ioredis": "^5"
+		"ioredis": "^5",
+		"mutts": "link:../mutts"
 	},
 	"devDependencies": {
-		"@pounce/plugin": "link:../pounce/packages/plugin",
-		"@babel/core": "^7",
-		"@babel/plugin-proposal-decorators": "^7",
-		"@babel/plugin-transform-react-jsx": "^7",
-		"@babel/plugin-transform-typescript": "^7",
-		"@types/node": "^24",
-		"vite": "^7",
-		"vite-plugin-dts": "^4",
-		"typescript": "^5.9",
+		"@babel/core": "^7.29.0",
+		"@babel/plugin-proposal-decorators": "^7.29.0",
+		"@babel/plugin-transform-react-jsx": "^7.28.6",
+		"@babel/plugin-transform-typescript": "^7.28.6",
+		"@babel/types": "^7.29.0",
+		"@types/babel__core": "^7.20.5",
+		"@types/node": "^25.1.0",
+		"sass": "^1.93",
 		"tsx": "^4",
-		"sass": "^1.93"
+		"typescript": "^5.9",
+		"vite": "^7",
+		"vite-plugin-dts": "^4.5.3"
 	},
 	"packageManager": "pnpm@10.28.2+sha512.41872f037ad22f7348e3b1debbaf7e867cfd448f2726d9cf74c08f19507c31d2c8e7a11525b983febc2df640b5438dee6023ebb1f84ed43cc2d654d2bc326264"
 }

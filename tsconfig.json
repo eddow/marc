@@ -17,13 +17,7 @@
 		"noUnusedParameters": false,
 		"paths": {
 			"mutts": ["../mutts/dist/index.d.ts"],
-			"mutts/*": ["../mutts/dist/src/*"],
-			"@pounce/core": ["../pounce/packages/core/dist/index.d.ts"],
-			"@pounce/core/*": ["../pounce/packages/core/dist/*"],
-			"@pounce/kit": ["../pounce/packages/kit/dist/index.d.ts"],
-			"@pounce/kit/*": ["../pounce/packages/kit/dist/*"],
-			"@pounce/ui": ["../pounce/packages/ui/dist/index.d.ts"],
-			"@pounce/adapter-pico": ["../pounce/packages/adapters/pico/dist/index.d.ts"]
+			"mutts/*": ["../mutts/dist/src/*"]
 		}
 	},
 	"include": [

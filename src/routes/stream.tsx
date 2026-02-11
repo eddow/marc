@@ -1,5 +1,5 @@
 import { reactive } from 'mutts'
-import { A } from '@pounce/kit/dom'
+import { A } from '@pounce/kit'
 import { channels, fetchChannel, subscribeChannel, parseMessages } from '../state'
 import Message from '../components/message'
 

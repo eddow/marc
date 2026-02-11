@@ -1,6 +1,6 @@
-import '@pounce/core/dom'
+import '@pounce/core'
 import { bindApp } from '@pounce/core'
-import { A, Router } from '@pounce/kit/dom'
+import { A, Router } from '@pounce/kit'
 import { setAdapter } from '@pounce/ui'
 import { picoAdapter } from '@pounce/adapter-pico'
 import '@pounce/adapter-pico/css'
