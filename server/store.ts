@@ -1,0 +1,155 @@
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+
+export interface Message {
+	id: number
+	from: string
+	target: string
+	text: string
+	ts: number
+	modified?: number
+	type?: 'text' | 'action' | 'join' | 'part'
+}
+
+interface StoreData {
+	messages: Message[]
+	cursors: Record<string, number>
+	joined: Record<string, string[]> // Agent Name -> List of Channel Targets
+	nextId: number
+}
+
+const DATA_DIR = resolve(import.meta.dirname, '..', 'sandbox')
+const DATA_FILE = resolve(DATA_DIR, 'store.json')
+const MAX_MESSAGES = 500
+
+let data: StoreData = { messages: [], cursors: {}, joined: {}, nextId: 1 }
+
+function load(): void {
+	if (existsSync(DATA_FILE)) {
+		try {
+			const loaded = JSON.parse(readFileSync(DATA_FILE, 'utf-8'))
+			// Migration: map channel -> target if needed
+			if (loaded.messages.length > 0 && 'channel' in loaded.messages[0]) {
+				console.log('Migrating store: channel -> target')
+				data.messages = loaded.messages.map((m: any) => ({
+					id: m.id,
+					from: m.from,
+					target: m.channel || m.target,
+					text: m.text,
+					ts: m.ts,
+					modified: m.modified,
+					type: m.type || 'text'
+				}))
+				data.nextId = loaded.nextId
+				data.cursors = loaded.cursors
+			} else {
+				data = loaded
+				// Ensure joined map exists
+				if (!data.joined) data.joined = {}
+				// Ensure types exist
+				data.messages.forEach(m => { if (!m.type) m.type = 'text' })
+			}
+		} catch {
+			console.warn('Failed to parse store.json, starting fresh')
+			data = { messages: [], cursors: {}, joined: {}, nextId: 1 }
+		}
+	}
+}
+
+function save(): void {
+	mkdirSync(DATA_DIR, { recursive: true })
+	writeFileSync(DATA_FILE, JSON.stringify(data, null, '\t'))
+}
+
+function evict(): void {
+	if (data.messages.length > MAX_MESSAGES) {
+		data.messages = data.messages.slice(data.messages.length - MAX_MESSAGES)
+	}
+}
+
+// --- Public API ---
+
+export function init(): void {
+	load()
+}
+
+export function post(from: string, target: string, text: string, type: Message['type'] = 'text'): number {
+	const id = data.nextId++
+	data.messages.push({ id, from, target, text, ts: Date.now(), type })
+	evict()
+	save()
+	return id
+}
+
+export function errata(messageId: number, newText: string): boolean {
+	const msg = data.messages.find(m => m.id === messageId)
+	if (!msg) return false
+	msg.text = newText
+	msg.modified = Date.now()
+	save()
+	return true
+}
+
+export function getNews(name: string): Message[] {
+	const lastId = data.cursors[name] ?? 0
+	const joinedChannels = new Set(data.joined[name] || [])
+	
+	// Filter messages:
+	// 1. Must be newer than cursor
+	// 2. Target must be the agent itself (DM) OR one of the channels the agent has joined
+	const news = data.messages.filter(m => 
+		m.id > lastId && (m.target === name || joinedChannels.has(m.target))
+	)
+	
+	if (news.length > 0) {
+		data.cursors[name] = news[news.length - 1].id
+		save()
+	}
+	return news
+}
+
+/** All messages (for the dashboard UI - user sees everything) */
+export function allMessages(): Message[] {
+	return data.messages
+}
+
+/** Messages for a specific target (channel or user) */
+export function messagesForTarget(target: string): Message[] {
+	return data.messages.filter(m => m.target === target)
+}
+
+// --- IRC Features ---
+
+export function join(agent: string, target: string): void {
+	if (!data.joined[agent]) data.joined[agent] = []
+	if (!data.joined[agent].includes(target)) {
+		data.joined[agent].push(target)
+		post(agent, target, `joined ${target}`, 'join')
+		save()
+	}
+}
+
+export function part(agent: string, target: string): void {
+	if (!data.joined[agent]) return
+	const idx = data.joined[agent].indexOf(target)
+	if (idx !== -1) {
+		data.joined[agent].splice(idx, 1)
+		post(agent, target, `left ${target}`, 'part')
+		save()
+	}
+}
+
+export function dismiss(agent: string): void {
+	const channels = data.joined[agent] || []
+	// Part all channels
+	for (const channel of [...channels]) { // copy array to iterate safely while mutating
+		part(agent, channel)
+	}
+}
+
+export function getUsers(target: string): string[] {
+	// Find all agents who have 'target' in their joined list
+	return Object.entries(data.joined)
+		.filter(([_, channels]) => channels.includes(target))
+		.map(([agent]) => agent)
+}

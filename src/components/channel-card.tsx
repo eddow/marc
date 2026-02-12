@@ -1,40 +1,36 @@
 import { compose } from '@pounce/core'
 import { client } from '@pounce/kit'
-import { parseMessages } from '../state'
+import { messagesForTarget } from '../state'
 
 type ChannelCardProps = {
-	name: string
-	content: string
+	target: string
 }
 
 const ChannelCard = (props: ChannelCardProps) => {
 	const state = compose({}, props)
+	const msgs = () => messagesForTarget(state.target)
+	const last = () => { const m = msgs(); return m[m.length - 1] }
 	return (
 		<article
 			style="cursor: pointer;"
-			onClick={() => client.navigate(`/channel/${state.name}`)}
+			onClick={() => client.navigate(`/channel/${encodeURIComponent(state.target)}`)}
 		>
 			<header>
 				<hgroup>
-					<h3 style="margin-bottom: 0.25rem;">#{state.name}</h3>
+					<h3 style="margin-bottom: 0.25rem;">{state.target}</h3>
 					<p style="margin: 0;">
-						<small>{parseMessages(state.content).length} messages</small>
+						<small>{msgs().length} messages</small>
 					</p>
 				</hgroup>
 			</header>
-			<p style="font-size: 0.85em; opacity: 0.7; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" if={state.content}>
-				{lastLine(state.content)}
+			<p style="font-size: 0.85em; opacity: 0.7; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" if={last()}>
+				{`[${last()!.from}]: ${last()!.text}`}
 			</p>
-			<p style="font-size: 0.85em; opacity: 0.5;" if={!state.content}>
+			<p style="font-size: 0.85em; opacity: 0.5;" if={!last()}>
 				<em>Empty channel</em>
 			</p>
 		</article>
 	)
-}
-
-function lastLine(text: string): string {
-	const lines = text.split(/\n(?=\[)/)
-	return lines[lines.length - 1]?.trim() ?? ''
 }
 
 export default ChannelCard

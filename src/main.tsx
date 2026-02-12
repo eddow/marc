@@ -18,7 +18,7 @@ const routes = [
 			<ChannelView name={spec.params.name} />,
 	},
 	{
-		path: '/stream',
+		path: '/all',
 		view: () => <StreamView />,
 	},
 	{
@@ -31,7 +31,7 @@ const notFound = (ctx: { url: string; routes: readonly unknown[] }) => (
 	<section style="text-align: center; padding: 4rem;">
 		<h1>404</h1>
 		<p>No route for <code>{ctx.url}</code></p>
-		<A href="/">← Back to Dashboard</A>
+		<A href="/">← Back to mARC</A>
 	</section>
 )
 

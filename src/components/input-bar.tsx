@@ -3,7 +3,7 @@ import { reactive } from 'mutts'
 import { postMessage, settings } from '../state'
 
 type InputBarProps = {
-	channel: string
+	target: string
 }
 
 const InputBar = (props: InputBarProps) => {
@@ -14,26 +14,26 @@ const InputBar = (props: InputBarProps) => {
 		const text = form.text.trim()
 		if (!text || form.sending) return
 		form.sending = true
-		await postMessage(state.channel, settings.agent, text)
+		if (text.startsWith('/me ')) {
+			await postMessage(state.target, settings.agent, text.slice(4), 'action')
+		} else {
+			await postMessage(state.target, settings.agent, text)
+		}
 		form.text = ''
 		form.sending = false
-	}
-
-	const onKeyDown = (e: KeyboardEvent) => {
-		if (e.key === 'Enter' && !e.shiftKey) {
-			e.preventDefault()
-			send()
-		}
 	}
 
 	return (
 		<div style="display: flex; gap: 0.5rem; padding: 0.5rem 0 0; margin: 0; flex-shrink: 0; align-items: stretch;">
 			<textarea
 				value={form.text}
-				placeholder="Type a message..."
+				onInput={(e) => form.text = (e.target as HTMLTextAreaElement).value}
+				placeholder={`Message ${state.target}...`}
 				rows={2}
 				style="flex: 1; resize: none; margin-bottom: 0;"
-				onKeydown={onKeyDown}
+				onKeydown={(e: KeyboardEvent) => {
+					if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() }
+				}}
 			/>
 			<button type="submit" disabled={form.sending}
 				onClick={(e: MouseEvent) => { e.preventDefault(); send() }}
