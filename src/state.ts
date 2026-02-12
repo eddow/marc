@@ -24,6 +24,25 @@ export function messagesForTarget(target: string): Message[] {
 	return messages.filter(m => m.target === target)
 }
 
+// Derived: unique channel names (# prefixed) from messages
+export function channelNames(): string[] {
+	const set = new Set(messages.filter(m => m.target.startsWith('#')).map(m => m.target))
+	return [...set].sort()
+}
+
+export async function deleteChannel(target: string): Promise<boolean> {
+	const res = await fetch('/api/channels/delete', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ name: target }),
+	})
+	if (res.ok) {
+		await fetchMessages()
+		return true
+	}
+	return false
+}
+
 // Persisted agent name
 const AGENT_KEY = 'marc:agent'
 export const settings = reactive({

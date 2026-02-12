@@ -7,9 +7,10 @@ Messages are structured objects `{ id, from, target, text, ts, modified?, type? 
 ## Architecture
 - **Unified Server** (`server/index.ts`): Express app on port 3001. Serves both Dashboard REST API and MCP Streamable HTTP transport on `/mcp`.
 - **Store** (`server/store.ts`): Shared in-memory message store with JSON persistence. Tracks agent channel membership (`joined` state).
-- **Client**: Pounce app (`@pounce/core` + `@pounce/kit/dom` + `@pounce/ui` + `@pounce/adapter-pico`)
+- **Client**: Pounce app using `@pounce/ui`'s `Dockview` component for IDE-like panel layout
+- **Layout**: `dockview-core` + `@pounce/ui` Dockview wrapper. No Router — panels are opened via `api.addPanel()`
 - **Build**: Vite 7 + `@pounce/core/plugin` (babel JSX transform) + sass
-- **Styling**: PicoCSS dark theme via adapter-pico
+- **Styling**: PicoCSS dark theme via adapter-pico + dockview-theme-dark overrides
 
 ## Conventions
 - **Channels**: Must start with `#` (e.g. `#general`).
@@ -61,12 +62,13 @@ pnpm dev       # → localhost:5280
 ## Key Files
 - `server/store.ts` — In-memory store, JSON persistence, buffer eviction, join/part/dismiss/getUsers
 - `server/index.ts` — Unified server: Dashboard REST API + MCP Streamable HTTP transport
-- `src/main.tsx` — Entry: bindApp, setAdapter(pico), Router
+- `src/main.tsx` — Entry: bindApp, setAdapter(pico), Dockview. Global SSE + fetch. Layout persisted to localStorage.
 - `src/state.ts` — Reactive state: messages array, fetch/SSE, derived channels, joinChannel/partChannel/dismissAgent/getUsers
-- `src/routes/dashboard.tsx` — Channel overview cards + "New Conversation" button
-- `src/routes/channel.tsx` — Chat view + input bar + Users sidebar with Kick button
-- `src/routes/stream.tsx` — All messages view with agent filter
-- `src/components/` — message (type-aware rendering), channel-card, input-bar (`/me` for action messages)
+- `src/routes/channel.tsx` — `DockviewWidget<{target}>`: Chat view + input bar + Users sidebar
+- `src/routes/agents.tsx` — `DockviewWidget`: Agent list table with Kick button
+- `src/routes/stream.tsx` — `DockviewWidget`: All messages view with agent filter
+- `src/components/toolbar.tsx` — `DockviewHeaderAction`: channel buttons + agents/stream/new buttons
+- `src/components/` — message (type-aware rendering), input-bar (`/me` for action messages)
 
 ## Pounce Conventions
 - No file extensions in imports
@@ -77,8 +79,12 @@ pnpm dev       # → localhost:5280
 - `this={ref}` for element refs (set-only binding)
 
 ## Gotchas
-- Router params may be URL-encoded (e.g. `%23general`). Use `decodeURIComponent()` on params before using as targets.
+- No Router — panels are opened via `dockviewApi.addPanel()`. Target name comes from `params.target` in widgets.
 - The Vite proxy only applies to `/api` paths. MCP is served directly at `/mcp` on the same port.
+- Layout is persisted to `localStorage` under key `marc:layout`. Clear it to reset.
+- Use `componentStyle.css` (plain CSS), NOT `.sass` — marc doesn't have the pounce UI vite plugin, and the runtime sass fallback doesn't compile SASS syntax.
+- Dockview widget containers (`.pounce-dv-item.body`) provide `width: 100%; height: 100%` but `height: 100%` chains don't constrain children. Use `position: absolute; inset: 0; overflow: hidden` on the widget root div.
+- `use:trail` directive (from `@pounce/ui`) auto-scrolls to bottom on content changes, disengages on user scroll-up. Used on the channel message list.
 
 ## Dependencies
-All pounce packages `link:` to local workspace. MCP SDK: `@modelcontextprotocol/sdk` (monolithic, deep imports). Babel plugins explicit devDeps (pnpm strict isolation).
+All pounce packages `link:` to local workspace. `dockview-core` is a direct dep (peer dep of `@pounce/ui`). MCP SDK: `@modelcontextprotocol/sdk` (monolithic, deep imports). Babel plugins explicit devDeps (pnpm strict isolation).

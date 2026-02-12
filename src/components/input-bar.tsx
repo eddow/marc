@@ -1,6 +1,30 @@
 import { compose } from '@pounce/core'
 import { reactive } from 'mutts'
+import { componentStyle } from '@pounce/kit/dom'
 import { postMessage, settings } from '../state'
+
+componentStyle.css`
+.input-bar {
+	display: flex;
+	gap: 0.5rem;
+	padding: 0.5rem 0 0;
+	margin: 0;
+	flex-shrink: 0;
+	align-items: stretch;
+}
+.input-bar textarea {
+	flex: 1;
+	resize: none;
+	margin-bottom: 0;
+}
+.input-bar button {
+	margin-bottom: 0;
+	padding: 0.4rem 0.75rem;
+	font-size: 0.8em;
+	width: auto;
+	flex-shrink: 0;
+}
+`
 
 type InputBarProps = {
 	target: string
@@ -24,20 +48,18 @@ const InputBar = (props: InputBarProps) => {
 	}
 
 	return (
-		<div style="display: flex; gap: 0.5rem; padding: 0.5rem 0 0; margin: 0; flex-shrink: 0; align-items: stretch;">
+		<div class="input-bar">
 			<textarea
 				value={form.text}
 				onInput={(e) => form.text = (e.target as HTMLTextAreaElement).value}
 				placeholder={`Message ${state.target}...`}
 				rows={2}
-				style="flex: 1; resize: none; margin-bottom: 0;"
 				onKeydown={(e: KeyboardEvent) => {
 					if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() }
 				}}
 			/>
 			<button type="submit" disabled={form.sending}
-				onClick={(e: MouseEvent) => { e.preventDefault(); send() }}
-				style="margin-bottom: 0; padding: 0.4rem 0.75rem; font-size: 0.8em; width: auto; flex-shrink: 0;">
+				onClick={(e: MouseEvent) => { e.preventDefault(); send() }}>
 				Send
 			</button>
 		</div>

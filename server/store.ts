@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
+import { resolve } from 'node:path'
 
 export interface Message {
 	id: number
@@ -93,18 +93,17 @@ export function errata(messageId: number, newText: string): boolean {
 }
 
 export function getNews(name: string): Message[] {
-	const lastId = data.cursors[name] ?? 0
+	const cursor = data.cursors[name] ?? 0
 	const joinedChannels = new Set(data.joined[name] || [])
-	
-	// Filter messages:
-	// 1. Must be newer than cursor
-	// 2. Target must be the agent itself (DM) OR one of the channels the agent has joined
-	const news = data.messages.filter(m => 
-		m.id > lastId && (m.target === name || joinedChannels.has(m.target))
-	)
-	
+
+	// A message is "new" if its ts or modified timestamp exceeds the cursor
+	const msgTime = (m: Message) => Math.max(m.ts, m.modified ?? 0)
+	const isRelevant = (m: Message) => m.target === name || joinedChannels.has(m.target)
+	const news = data.messages.filter(m => msgTime(m) > cursor && isRelevant(m))
+
 	if (news.length > 0) {
-		data.cursors[name] = news[news.length - 1].id
+		// Advance cursor to the latest timestamp seen
+		data.cursors[name] = Math.max(...news.map(msgTime))
 
 		// Delete private messages from the store once they are read (polled)
 		const privateMessageIds = new Set(news.filter(m => m.target === name).map(m => m.id))
@@ -112,7 +111,7 @@ export function getNews(name: string): Message[] {
 			data.messages = data.messages.filter(m => !privateMessageIds.has(m.id))
 		}
 	}
-	
+
 	// Always update lastSeen when getting news
 	data.lastSeen[name] = Date.now()
 	save()
@@ -170,6 +169,11 @@ export function dismiss(agent: string): void {
 		data.messages = data.messages.filter(m => !pmIds.has(m.id))
 	}
 
+	// Remove agent from all tracking maps
+	delete data.joined[agent]
+	delete data.lastSeen[agent]
+	delete data.cursors[agent]
+
 	save()
 }
 
@@ -188,4 +192,15 @@ export function getAllAgents(): { name: string, ts?: number }[] {
 		name,
 		ts: data.lastSeen[name]
 	}))
+}
+
+export function deleteChannel(target: string): void {
+	// Remove all messages for this target
+	data.messages = data.messages.filter(m => m.target !== target)
+	// Remove from all agents' joined lists
+	for (const agent of Object.keys(data.joined)) {
+		const idx = data.joined[agent].indexOf(target)
+		if (idx !== -1) data.joined[agent].splice(idx, 1)
+	}
+	save()
 }

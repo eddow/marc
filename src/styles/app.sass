@@ -6,14 +6,50 @@ article
 	&:last-child
 		border-bottom: none
 
-// Channel cards grid
-.grid > article
-	transition: transform 0.15s ease, box-shadow 0.15s ease
-	&:hover
-		transform: translateY(-2px)
-		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3)
+// Full-viewport layout
+html, body
+	margin: 0
+	padding: 0
+	height: 100vh
+	overflow: hidden
 
-// Tighter main container for full-height views
-main.container
-	padding-top: 1rem
-	padding-bottom: 0.5rem
+#app
+	height: 100vh
+	overflow: hidden
+
+// mARC header bar
+.marc-header
+	display: flex
+	align-items: center
+	justify-content: space-between
+	gap: 0.75rem
+	padding: 0.4rem 1rem
+	background: var(--pico-card-background-color, #1a1a2e)
+	border-bottom: 1px solid var(--pico-muted-border-color, #333)
+	flex-shrink: 0
+
+// Dockview dark theme overrides for PicoCSS
+.dockview-theme-dark
+	--dv-group-view-background-color: var(--pico-background-color, #13171f)
+	--dv-tabs-and-actions-container-background-color: var(--pico-card-background-color, #1a1a2e)
+	--dv-activegroup-visiblepanel-tab-background-color: var(--pico-background-color, #13171f)
+	--dv-activegroup-hiddenpanel-tab-background-color: var(--pico-card-background-color, #1a1a2e)
+	--dv-inactivegroup-visiblepanel-tab-background-color: var(--pico-background-color, #13171f)
+	--dv-inactivegroup-hiddenpanel-tab-background-color: var(--pico-card-background-color, #1a1a2e)
+	--dv-tab-divider-color: var(--pico-muted-border-color, #333)
+	--dv-separator-border: var(--pico-muted-border-color, #333)
+	--dv-activegroup-visiblepanel-tab-color: var(--pico-color, #e0e0e0)
+	--dv-activegroup-hiddenpanel-tab-color: var(--pico-muted-color, #888)
+	--dv-inactivegroup-visiblepanel-tab-color: var(--pico-muted-color, #888)
+	--dv-inactivegroup-hiddenpanel-tab-color: var(--pico-muted-color, #666)
+
+// Inline input for agent name
+.pounce-input-inline
+	background: transparent
+	border: none
+	border-bottom: 1px solid var(--pico-muted-border-color, #444)
+	color: inherit
+	padding: 0
+	margin: 0
+	outline: none
+	font: inherit

@@ -5,7 +5,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js'
 import { z } from 'zod'
-import { init, post, errata, allMessages, messagesForTarget, getNews, join, part, dismiss, getUsers, getAllAgents, type Message } from './store.js'
+import { init, post, errata, allMessages, messagesForTarget, getNews, join, part, dismiss, deleteChannel, getUsers, getAllAgents, type Message } from './store.js'
 
 init()
 
@@ -19,7 +19,7 @@ const getServer = () => {
 
 	server.tool(
 		'post',
-		'Post a message to a channel (starting with #) or as a DM to a specific agent (user name)',
+		'Post a message to a channel (starting with #) or as a DM to a specific agent (user name). Set type to "action" for /me-style messages (e.g. "waves hello" renders as "* AgentName waves hello").',
 		{ name: z.string(), target: z.string(), message: z.string(), type: z.enum(['text', 'action']).optional() },
 		async ({ name, target, message, type }) => {
 			const id = post(name, target, message, type)
@@ -71,7 +71,7 @@ const getServer = () => {
 
 	server.tool(
 		'getNews',
-		'Get all unread messages from joined channels and DMs since your last read cursor. NOTE: Edits to old messages are not currently included in news.',
+		'Get all unread messages from joined channels and DMs since your last read cursor. Edited messages (errata) will reappear if modified after your last read.',
 		{ name: z.string() },
 		async ({ name }) => {
 			const news = getNews(name)
@@ -166,6 +166,17 @@ app.post('/api/errata', (req, res) => {
 	}
 	const ok = errata(messageId, newMessage)
 	res.json({ ok })
+})
+
+// POST /api/channels/delete — delete a channel and all its messages
+app.post('/api/channels/delete', (req, res) => {
+	const { name } = req.body
+	if (!name) {
+		res.status(400).json({ error: 'Missing channel name' })
+		return
+	}
+	deleteChannel(name)
+	res.json({ ok: true })
 })
 
 // SSE — poll all messages every 2s

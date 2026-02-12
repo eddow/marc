@@ -1,13 +1,65 @@
 import { reactive } from 'mutts'
-import { A } from '@pounce/kit'
-import { messages, fetchMessages, subscribeAll, type Message } from '../state'
+import type { DockviewWidgetProps } from '@pounce/ui'
+import { componentStyle } from '@pounce/kit/dom'
+import { messages, type Message } from '../state'
 import MessageView from '../components/message'
 
-const StreamView = () => {
-	const filter = reactive({ agent: '', reversed: false })
+componentStyle.css`
+.stream-panel {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+	padding: 0.5rem;
+}
+.stream-header {
+	display: flex;
+	align-items: center;
+	gap: 1rem;
+	margin-bottom: 0.5rem;
+	flex-wrap: wrap;
+	flex-shrink: 0;
+}
+.stream-header h3 {
+	margin: 0;
+}
+.stream-filters {
+	margin-left: auto;
+	display: flex;
+	gap: 0.5rem;
+	align-items: center;
+}
+.stream-filters input[type="text"] {
+	width: 12rem;
+	margin-bottom: 0;
+}
+.stream-filters label {
+	display: flex;
+	align-items: center;
+	gap: 0.25rem;
+	white-space: nowrap;
+	margin-bottom: 0;
+}
+.stream-filters label input {
+	margin-bottom: 0;
+}
+.stream-messages {
+	flex: 1;
+	overflow-y: auto;
+	border: 1px solid var(--pico-muted-border-color, #333);
+	border-radius: var(--pico-border-radius, 0.25rem);
+	padding: 0.5rem;
+}
+.stream-empty {
+	text-align: center;
+	opacity: 0.4;
+	padding: 2rem;
+}
+`
 
-	fetchMessages()
-	subscribeAll()
+const StreamWidget = (_props: DockviewWidgetProps) => {
+	const filter = reactive({ agent: '', reversed: false })
 
 	const filtered = (): Message[] => {
 		let msgs = [...messages]
@@ -20,28 +72,26 @@ const StreamView = () => {
 	}
 
 	return (
-		<div style="display: flex; flex-direction: column; height: calc(100vh - 6rem);">
-			<header style="display: flex; align-items: center; gap: 1rem; margin-bottom: 0.75rem; flex-wrap: wrap;">
-				<A href="/" style="text-decoration: none;">← Back</A>
-				<h2 style="margin: 0;">All Messages</h2>
-				<div style="margin-left: auto; display: flex; gap: 0.5rem; align-items: center;">
+		<div class="stream-panel">
+			<header class="stream-header">
+				<h3>All Messages</h3>
+				<div class="stream-filters">
 					<input
 						type="text"
 						value={filter.agent}
 						placeholder="Filter by agent..."
-						style="width: 12rem; margin-bottom: 0;"
 					/>
-					<label style="display: flex; align-items: center; gap: 0.25rem; white-space: nowrap; margin-bottom: 0;">
-						<input type="checkbox" checked={filter.reversed} style="margin-bottom: 0;" />
+					<label>
+						<input type="checkbox" checked={filter.reversed} />
 						Newest first
 					</label>
 				</div>
 			</header>
-			<div style="flex: 1; overflow-y: auto; border: 1px solid var(--pico-muted-border-color, #333); border-radius: var(--pico-border-radius, 0.25rem); padding: 0.5rem;">
+			<div class="stream-messages">
 				<for each={filtered()}>{(msg) =>
 					<MessageView message={msg} />
 				}</for>
-				<p style="text-align: center; opacity: 0.4; padding: 2rem;" if={messages.length === 0}>
+				<p class="stream-empty" if={messages.length === 0}>
 					<em>No messages yet</em>
 				</p>
 			</div>
@@ -49,4 +99,4 @@ const StreamView = () => {
 	)
 }
 
-export default StreamView
+export default StreamWidget
