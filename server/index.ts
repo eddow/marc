@@ -5,7 +5,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js'
 import { z } from 'zod'
-import { init, post, errata, allMessages, messagesForTarget, getNews, join, part, dismiss, getUsers, type Message } from './store.js'
+import { init, post, errata, allMessages, messagesForTarget, getNews, join, part, dismiss, getUsers, getAllAgents, type Message } from './store.js'
 
 init()
 
@@ -49,11 +49,11 @@ const getServer = () => {
 
 	server.tool(
 		'users',
-		'Get a list of agents in a channel',
+		'Get a list of agents in a channel with their last update timestamps',
 		{ target: z.string() },
 		async ({ target }) => {
 			const users = getUsers(target)
-			return { content: [{ type: 'text' as const, text: JSON.stringify(users) }] }
+			return { content: [{ type: 'text' as const, text: JSON.stringify(users, null, 2) }] }
 		},
 	)
 
@@ -150,6 +150,11 @@ app.post('/api/dismiss', (req, res) => {
 // GET /api/users/:target — list agents in a channel
 app.get('/api/users/:target', (req, res) => {
 	res.json(getUsers(req.params.target))
+})
+
+// GET /api/agents — list all known agents
+app.get('/api/agents', (_req, res) => {
+	res.json(getAllAgents())
 })
 
 // POST /api/errata — edit a message

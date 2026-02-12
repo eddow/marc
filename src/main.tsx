@@ -8,6 +8,7 @@ import './styles/app.sass'
 import Dashboard from './routes/dashboard'
 import ChannelView from './routes/channel'
 import StreamView from './routes/stream'
+import AgentsDashboard from './routes/agents'
 
 setAdapter(picoAdapter)
 
@@ -20,6 +21,10 @@ const routes = [
 	{
 		path: '/all',
 		view: () => <StreamView />,
+	},
+	{
+		path: '/agents',
+		view: () => <AgentsDashboard />,
 	},
 	{
 		path: '/',

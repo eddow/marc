@@ -108,8 +108,16 @@ export async function dismissAgent(agent: string): Promise<boolean> {
 	return false
 }
 
-export async function getUsers(target: string): Promise<string[]> {
+export async function getUsers(target: string): Promise<{ name: string, ts?: number }[]> {
 	const res = await fetch(`/api/users/${encodeURIComponent(target)}`)
+	if (res.ok) {
+		return await res.json()
+	}
+	return []
+}
+
+export async function getAllAgents(): Promise<{ name: string, ts?: number }[]> {
+	const res = await fetch('/api/agents')
 	if (res.ok) {
 		return await res.json()
 	}

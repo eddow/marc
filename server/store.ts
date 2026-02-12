@@ -15,6 +15,7 @@ interface StoreData {
 	messages: Message[]
 	cursors: Record<string, number>
 	joined: Record<string, string[]> // Agent Name -> List of Channel Targets
+	lastSeen: Record<string, number> // Agent Name -> Timestamp
 	nextId: number
 }
 
@@ -22,7 +23,7 @@ const DATA_DIR = resolve(import.meta.dirname, '..', 'sandbox')
 const DATA_FILE = resolve(DATA_DIR, 'store.json')
 const MAX_MESSAGES = 500
 
-let data: StoreData = { messages: [], cursors: {}, joined: {}, nextId: 1 }
+let data: StoreData = { messages: [], cursors: {}, joined: {}, lastSeen: {}, nextId: 1 }
 
 function load(): void {
 	if (existsSync(DATA_FILE)) {
@@ -44,14 +45,15 @@ function load(): void {
 				data.cursors = loaded.cursors
 			} else {
 				data = loaded
-				// Ensure joined map exists
+				// Ensure maps exist
 				if (!data.joined) data.joined = {}
+				if (!data.lastSeen) data.lastSeen = {}
 				// Ensure types exist
 				data.messages.forEach(m => { if (!m.type) m.type = 'text' })
 			}
 		} catch {
 			console.warn('Failed to parse store.json, starting fresh')
-			data = { messages: [], cursors: {}, joined: {}, nextId: 1 }
+			data = { messages: [], cursors: {}, joined: {}, lastSeen: {}, nextId: 1 }
 		}
 	}
 }
@@ -103,8 +105,18 @@ export function getNews(name: string): Message[] {
 	
 	if (news.length > 0) {
 		data.cursors[name] = news[news.length - 1].id
-		save()
+
+		// Delete private messages from the store once they are read (polled)
+		const privateMessageIds = new Set(news.filter(m => m.target === name).map(m => m.id))
+		if (privateMessageIds.size > 0) {
+			data.messages = data.messages.filter(m => !privateMessageIds.has(m.id))
+		}
 	}
+	
+	// Always update lastSeen when getting news
+	data.lastSeen[name] = Date.now()
+	save()
+
 	return news
 }
 
@@ -145,11 +157,35 @@ export function dismiss(agent: string): void {
 	for (const channel of [...channels]) { // copy array to iterate safely while mutating
 		part(agent, channel)
 	}
+
+	// Transform unread private messages into failure notices for the sender
+	const unreadPMs = data.messages.filter(m => m.target === agent)
+	for (const m of unreadPMs) {
+		post(agent, m.from, `The message couldn't be delivered: ${m.text}`)
+	}
+
+	// Delete the unread PMs
+	if (unreadPMs.length > 0) {
+		const pmIds = new Set(unreadPMs.map(m => m.id))
+		data.messages = data.messages.filter(m => !pmIds.has(m.id))
+	}
+
+	save()
 }
 
-export function getUsers(target: string): string[] {
+export function getUsers(target: string): { name: string, ts?: number }[] {
 	// Find all agents who have 'target' in their joined list
 	return Object.entries(data.joined)
 		.filter(([_, channels]) => channels.includes(target))
-		.map(([agent]) => agent)
+		.map(([agent]) => ({
+			name: agent,
+			ts: data.lastSeen[agent]
+		}))
+}
+
+export function getAllAgents(): { name: string, ts?: number }[] {
+	return Object.keys(data.lastSeen).map(name => ({
+		name,
+		ts: data.lastSeen[name]
+	}))
 }

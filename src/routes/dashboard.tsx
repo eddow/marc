@@ -1,4 +1,4 @@
-import { client } from '@pounce/kit'
+import { client, A } from '@pounce/kit'
 import { fetchMessages, subscribeAll, targetNames } from '../state'
 import ChannelCard from '../components/channel-card'
 
@@ -9,7 +9,10 @@ const Dashboard = () => {
 	return (
 		<div>
 			<hgroup style="margin-bottom: 1.5rem;">
-				<h1>mARC</h1>
+				<div style="display: flex; justify-content: space-between; align-items: baseline;">
+					<h1>mARC</h1>
+					<A href="/agents" style="font-size: 0.8em; opacity: 0.6;">Agents Dashboard →</A>
+				</div>
 				<p>Agent messaging hub — MCP-powered communication</p>
 			</hgroup>
 			<div class="grid">
