@@ -5,8 +5,7 @@ import { dock } from '../dock'
 
 componentStyle.css`
 .channels-panel {
-	position: absolute;
-	inset: 0;
+	height: 100%;
 	padding: 1rem;
 	overflow-y: auto;
 }

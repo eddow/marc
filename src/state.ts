@@ -10,6 +10,17 @@ export interface Message {
 	type?: 'text' | 'action' | 'join' | 'part'
 }
 
+export interface Topic {
+	text: string
+	setBy: string
+	ts: number
+}
+
+export interface Briefing {
+	text: string
+	updatedAt: number
+}
+
 // All messages from the server
 export const messages = reactive<Message[]>([])
 
@@ -112,6 +123,36 @@ export async function partChannel(agent: string, target: string): Promise<boolea
 		return true
 	}
 	return false
+}
+
+export async function fetchTopic(target: string): Promise<Topic | null> {
+	const res = await fetch(`/api/topic/${encodeURIComponent(target)}`)
+	if (res.ok) return await res.json()
+	return null
+}
+
+export async function setTopicApi(target: string, topic: string): Promise<boolean> {
+	const res = await fetch('/api/topic', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ name: settings.agent, target, topic }),
+	})
+	return res.ok
+}
+
+export async function fetchBriefing(): Promise<Briefing | null> {
+	const res = await fetch('/api/briefing')
+	if (res.ok) return await res.json()
+	return null
+}
+
+export async function setBriefingApi(text: string): Promise<boolean> {
+	const res = await fetch('/api/briefing', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ text }),
+	})
+	return res.ok
 }
 
 export async function dismissAgent(agent: string): Promise<boolean> {

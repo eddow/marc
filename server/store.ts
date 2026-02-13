@@ -11,19 +11,37 @@ export interface Message {
 	type?: 'text' | 'action' | 'join' | 'part'
 }
 
+export interface Topic {
+	text: string
+	setBy: string
+	ts: number
+}
+
+export interface Briefing {
+	text: string
+	updatedAt: number
+}
+
 interface StoreData {
 	messages: Message[]
 	cursors: Record<string, number>
 	joined: Record<string, string[]> // Agent Name -> List of Channel Targets
 	lastSeen: Record<string, number> // Agent Name -> Timestamp
+	topics: Record<string, Topic> // Channel -> Topic
+	briefing: Briefing | null
 	nextId: number
 }
 
-const DATA_DIR = resolve(import.meta.dirname, '..', 'sandbox')
-const DATA_FILE = resolve(DATA_DIR, 'store.json')
+let DATA_DIR = resolve(import.meta.dirname, '..', 'sandbox')
+let DATA_FILE = resolve(DATA_DIR, 'store.json')
 const MAX_MESSAGES = 500
 
-let data: StoreData = { messages: [], cursors: {}, joined: {}, lastSeen: {}, nextId: 1 }
+let data: StoreData = { messages: [], cursors: {}, joined: {}, lastSeen: {}, topics: {}, briefing: null, nextId: 1 }
+
+export function setDataDir(dir: string): void {
+	DATA_DIR = resolve(dir)
+	DATA_FILE = resolve(DATA_DIR, 'store.json')
+}
 
 function load(): void {
 	if (existsSync(DATA_FILE)) {
@@ -48,12 +66,14 @@ function load(): void {
 				// Ensure maps exist
 				if (!data.joined) data.joined = {}
 				if (!data.lastSeen) data.lastSeen = {}
+				if (!data.topics) data.topics = {}
+				if (!data.briefing) data.briefing = null
 				// Ensure types exist
 				data.messages.forEach(m => { if (!m.type) m.type = 'text' })
 			}
 		} catch {
 			console.warn('Failed to parse store.json, starting fresh')
-			data = { messages: [], cursors: {}, joined: {}, lastSeen: {}, nextId: 1 }
+			data = { messages: [], cursors: {}, joined: {}, lastSeen: {}, topics: {}, briefing: null, nextId: 1 }
 		}
 	}
 }
@@ -92,7 +112,13 @@ export function errata(messageId: number, newText: string): boolean {
 	return true
 }
 
-export function getNews(name: string): Message[] {
+export interface NewsResult {
+	messages: Message[]
+	topics: Record<string, Topic>
+	briefing?: Briefing
+}
+
+export function getNews(name: string): NewsResult {
 	const cursor = data.cursors[name] ?? 0
 	const joinedChannels = new Set(data.joined[name] || [])
 
@@ -101,9 +127,22 @@ export function getNews(name: string): Message[] {
 	const isRelevant = (m: Message) => m.target === name || joinedChannels.has(m.target)
 	const news = data.messages.filter(m => msgTime(m) > cursor && isRelevant(m))
 
-	if (news.length > 0) {
-		// Advance cursor to the latest timestamp seen
-		data.cursors[name] = Math.max(...news.map(msgTime))
+	// Collect topic changes since cursor for joined channels
+	const changedTopics: Record<string, Topic> = {}
+	for (const ch of joinedChannels) {
+		const topic = data.topics[ch]
+		if (topic && topic.ts > cursor) changedTopics[ch] = topic
+	}
+
+	// Include briefing if changed since cursor
+	const changedBriefing = data.briefing && data.briefing.updatedAt > cursor ? data.briefing : undefined
+
+	const allTimes = [...news.map(msgTime), ...Object.values(changedTopics).map(t => t.ts)]
+	if (changedBriefing) allTimes.push(changedBriefing.updatedAt)
+	const maxTime = allTimes.length > 0 ? Math.max(...allTimes) : 0
+
+	if (maxTime > cursor) {
+		data.cursors[name] = maxTime
 
 		// Delete private messages from the store once they are read (polled)
 		const privateMessageIds = new Set(news.filter(m => m.target === name).map(m => m.id))
@@ -116,7 +155,9 @@ export function getNews(name: string): Message[] {
 	data.lastSeen[name] = Date.now()
 	save()
 
-	return news
+	const result: NewsResult = { messages: news, topics: changedTopics }
+	if (changedBriefing) result.briefing = changedBriefing
+	return result
 }
 
 /** All messages (for the dashboard UI - user sees everything) */
@@ -131,12 +172,22 @@ export function messagesForTarget(target: string): Message[] {
 
 // --- IRC Features ---
 
-export function join(agent: string, target: string): void {
+export interface JoinResult {
+	history: Message[]
+	topic: Topic | null
+}
+
+export function join(agent: string, target: string): JoinResult {
 	if (!data.joined[agent]) data.joined[agent] = []
-	if (!data.joined[agent].includes(target)) {
+	const alreadyJoined = data.joined[agent].includes(target)
+	if (!alreadyJoined) {
 		data.joined[agent].push(target)
 		post(agent, target, `joined ${target}`, 'join')
 		save()
+	}
+	return {
+		history: data.messages.filter(m => m.target === target).slice(-50),
+		topic: data.topics[target] ?? null,
 	}
 }
 
@@ -194,6 +245,49 @@ export function getAllAgents(): { name: string, ts?: number }[] {
 	}))
 }
 
+export function context(messageId: number, before = 5, after = 5): Message[] {
+	const idx = data.messages.findIndex(m => m.id === messageId)
+	if (idx === -1) return []
+	const start = Math.max(0, idx - before)
+	const end = Math.min(data.messages.length, idx + after + 1)
+	return data.messages.slice(start, end)
+}
+
+export function search(query: string, target?: string, from?: string, limit = 20): Message[] {
+	const lower = query.toLowerCase()
+	const results: Message[] = []
+	// Search backwards (newest first)
+	for (let i = data.messages.length - 1; i >= 0 && results.length < limit; i--) {
+		const m = data.messages[i]
+		if (target && m.target !== target) continue
+		if (from && m.from !== from) continue
+		if (m.text.toLowerCase().includes(lower)) results.push(m)
+	}
+	return results
+}
+
+export function setTopic(agent: string, target: string, text: string): Topic {
+	const topic: Topic = { text, setBy: agent, ts: Date.now() }
+	data.topics[target] = topic
+	save()
+	return topic
+}
+
+export function getTopic(target: string): Topic | null {
+	return data.topics[target] ?? null
+}
+
+export function getBriefing(): Briefing | null {
+	return data.briefing
+}
+
+export function setBriefing(text: string): Briefing {
+	const briefing: Briefing = { text, updatedAt: Date.now() }
+	data.briefing = briefing
+	save()
+	return briefing
+}
+
 export function deleteChannel(target: string): void {
 	// Remove all messages for this target
 	data.messages = data.messages.filter(m => m.target !== target)
@@ -202,5 +296,6 @@ export function deleteChannel(target: string): void {
 		const idx = data.joined[agent].indexOf(target)
 		if (idx !== -1) data.joined[agent].splice(idx, 1)
 	}
+	delete data.topics[target]
 	save()
 }

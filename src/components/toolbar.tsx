@@ -1,4 +1,5 @@
 import { componentStyle } from '@pounce/kit/dom'
+import { Combobox } from '@pounce/ui'
 import { dock } from '../dock'
 import { settings, setAgentName, targetNames } from '../state'
 
@@ -8,11 +9,14 @@ componentStyle.css`
 	align-items: center;
 	gap: 0.35rem;
 }
-.toolbar select {
+.toolbar .pounce-combobox {
+	margin: 0;
+}
+.toolbar .pounce-combobox > input {
 	padding: 0.15rem 0.4rem;
 	font-size: 0.75em;
 	margin: 0;
-	width: auto;
+	min-width: 8rem;
 }
 .toolbar .tb-btn {
 	padding: 0.15rem 0.5rem;
@@ -56,28 +60,30 @@ const Toolbar = () => {
 
 	const channels = () => targetNames().filter(t => t.startsWith('#'))
 
-	const onSelectChannel = (e: Event) => {
-		const sel = e.target as HTMLSelectElement
-		const target = sel.value
-		if (target) {
-			openChannel(target)
-			sel.value = ''
-		}
+	const onChannelPick = (e: KeyboardEvent) => {
+		if (e.key !== 'Enter') return
+		const input = e.target as HTMLInputElement
+		const value = input.value.trim()
+		if (!value) return
+		const target = value.startsWith('#') ? value : `#${value}`
+		openChannel(target)
+		input.value = ''
 	}
 
 
 
 	return (
 		<nav class="toolbar">
-			<select onChange={onSelectChannel}>
-				<option value="">Channels…</option>
-				<for each={channels()}>{(target) =>
-					<option value={target}>{target}</option>
-				}</for>
-			</select>
+			{channels()}
+			<Combobox
+				options={channels()}
+				placeholder="Channels…"
+				onKeydown={onChannelPick}
+			/>
 			<button class="outline contrast tb-btn" onClick={openAgents} title="Agents Dashboard">👥</button>
 			<button class="outline contrast tb-btn" onClick={openStream} title="All Messages">📜</button>
 			<button class="outline contrast tb-btn" onClick={() => openPanel('channels', 'channels', 'Channels')} title="Manage Channels">#</button>
+			<button class="outline contrast tb-btn" onClick={() => openPanel('briefing', 'briefing', 'Briefing')} title="Operator Briefing">📋</button>
 			<span class="agent-label">
 				👤 <input
 					type="text"

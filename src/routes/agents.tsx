@@ -6,8 +6,7 @@ import { dock } from '../dock'
 
 componentStyle.css`
 .agents-panel {
-	position: absolute;
-	inset: 0;
+	height: 100%;
 	padding: 1rem;
 	overflow-y: auto;
 }

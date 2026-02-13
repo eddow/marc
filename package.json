@@ -1,8 +1,7 @@
 {
-	"name": "marc",
+	"name": "mcp-arc",
 	"version": "1.0.0",
-	"private": true,
-	"type": "module",
+		"type": "module",
 	"description": "MCP server over HTTP for agent-to-agent messaging with browser dashboard",
 	"repository": {
 		"type": "git",
@@ -14,22 +13,25 @@
 		"dev": "vite",
 		"server": "node --import tsx server/index.ts",
 		"build": "vite build",
-		"preview": "vite preview"
+		"build:server": "tsc -p server/tsconfig.json",
+		"build:all": "npm run build && npm run build:server",
+		"preview": "vite preview",
+		"start": "node dist/cli.js"
 	},
 	"dependencies": {
 		"@modelcontextprotocol/sdk": "^1.26",
 		"@picocss/pico": "^2",
+		"cors": "^2",
+		"dockview-core": "^4.13.1",
+		"express": "^5",
+		"zod": "^3.25"
+	},
+	"devDependencies": {
 		"@pounce/adapter-pico": "link:../pounce/packages/adapters/pico",
 		"@pounce/core": "link:../pounce/packages/core",
 		"@pounce/kit": "link:../pounce/packages/kit",
 		"@pounce/ui": "link:../pounce/packages/ui",
-		"cors": "^2",
-		"dockview-core": "^4.13.1",
-		"express": "^5",
 		"mutts": "link:../mutts",
-		"zod": "^3.25"
-	},
-	"devDependencies": {
 		"@babel/core": "^7.29.0",
 		"@babel/plugin-proposal-decorators": "^7.29.0",
 		"@babel/plugin-transform-react-jsx": "^7.28.6",
@@ -45,5 +47,11 @@
 		"vite": "^7",
 		"vite-plugin-dts": "^4.5.3"
 	},
+	"bin": {
+		"marc": "dist/cli.js"
+	},
+	"files": [
+		"dist/**/*"
+	],
 	"packageManager": "pnpm@10.28.2+sha512.41872f037ad22f7348e3b1debbaf7e867cfd448f2726d9cf74c08f19507c31d2c8e7a11525b983febc2df640b5438dee6023ebb1f84ed43cc2d654d2bc326264"
 }

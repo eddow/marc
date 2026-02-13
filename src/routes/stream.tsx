@@ -6,8 +6,7 @@ import MessageView from '../components/message'
 
 componentStyle.css`
 .stream-panel {
-	position: absolute;
-	inset: 0;
+	height: 100%;
 	display: flex;
 	flex-direction: column;
 	overflow: hidden;

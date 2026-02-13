@@ -12,6 +12,7 @@ import ChannelWidget from './routes/channel'
 import AgentsWidget from './routes/agents'
 import ChannelsWidget from './routes/channels'
 import StreamWidget from './routes/stream'
+import BriefingWidget from './routes/briefing'
 import Toolbar from './components/toolbar'
 import { dock } from './dock'
 import logo from './assets/logo.png'
@@ -59,6 +60,7 @@ const widgets = {
 	agents: AgentsWidget,
 	channels: ChannelsWidget,
 	stream: StreamWidget,
+	briefing: BriefingWidget,
 }
 
 const DockviewWrapper = (_props: Record<string, never>, scope: Record<string, any>) => {

@@ -17,6 +17,7 @@ function forceSingleMutts(): Plugin {
 
 export default defineConfig({
 	root: resolve(import.meta.dirname, '.'),
+	base: './', // For serving from subdirectory
 	plugins: [
 		forceSingleMutts(),
 		pounceCorePlugin({
@@ -32,6 +33,16 @@ export default defineConfig({
 	},
 	optimizeDeps: {
 		exclude: ['mutts', '@pounce/core', '@pounce/kit', '@pounce/ui', '@pounce/adapter-pico'],
+	},
+	build: {
+		// Bundle everything for standalone deployment
+		rollupOptions: {
+			output: {
+				manualChunks: undefined, // Bundle all together
+			},
+		},
+		cssCodeSplit: false,
+		sourcemap: true,
 	},
 	server: {
 		port: 5280,
