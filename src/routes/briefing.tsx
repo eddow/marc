@@ -1,7 +1,6 @@
+import { componentStyle, type DockviewWidgetProps } from '@pounce'
 import { effect, reactive } from 'mutts'
-import { componentStyle } from '@pounce/kit/dom'
-import { fetchBriefing, setBriefingApi, formatTimestamp } from '../state'
-import type { DockviewWidgetProps } from '@pounce/ui'
+import { fetchBriefing, formatTimestamp, setBriefingApi } from '../state'
 
 componentStyle.css`
 .briefing-panel {
@@ -75,12 +74,10 @@ const BriefingWidget = (_props: DockviewWidgetProps) => {
 
 	const save = async () => {
 		state.saving = true
-		const ok = await setBriefingApi(state.draft)
+		await setBriefingApi(state.draft)
+		state.text = state.draft
 		state.saving = false
-		if (ok) {
-			state.text = state.draft
-			await refresh()
-		}
+		await refresh()
 	}
 
 	const onKeydown = (e: KeyboardEvent) => {
@@ -104,17 +101,17 @@ const BriefingWidget = (_props: DockviewWidgetProps) => {
 			</header>
 			<textarea
 				value={state.draft}
-				onInput={(e: Event) => { state.draft = (e.target as HTMLTextAreaElement).value }}
+				onInput={(e: Event) => {
+					state.draft = (e.target as HTMLTextAreaElement).value
+				}}
 				onKeydown={onKeydown}
-				placeholder="Write operator instructions for agents here. This will be delivered to agents via getNews when updated."
+				placeholder="Write operator instructions for agents here. This will be delivered to agents via sync when updated."
 			/>
 			<footer>
-				<span class="status" if={isDirty()}>Unsaved changes</span>
-				<button
-					class="save-btn"
-					onClick={save}
-					disabled={!isDirty() || state.saving}
-				>
+				<span class="status" if={isDirty()}>
+					Unsaved changes
+				</span>
+				<button class="save-btn" onClick={save} disabled={!isDirty() || state.saving}>
 					{state.saving ? 'Saving...' : 'Save'}
 				</button>
 			</footer>

@@ -1,10 +1,9 @@
-import { effect, reactive } from 'mutts'
+import { componentStyle } from '@pounce/kit'
 import type { DockviewWidgetProps } from '@pounce/ui'
-import { trail } from '@pounce/ui'
-import { componentStyle } from '@pounce/kit/dom'
-import { messagesForTarget, settings, getUsers, fetchTopic, setTopicApi } from '../state'
-import MessageView from '../components/message'
+import { effect, reactive } from 'mutts'
 import InputBar from '../components/input-bar'
+import MessageView from '../components/message'
+import { fetchTopic, getUsers, messagesForTarget, setTopicApi, settings } from '../state'
 
 componentStyle.css`
 .channel {
@@ -49,7 +48,9 @@ componentStyle.css`
 	flex: 1;
 	min-height: 0;
 	overflow-y: auto;
+	overflow-x: hidden;
 	padding: 0.5rem;
+	scroll-behavior: smooth;
 }
 .channel-empty {
 	text-align: center;
@@ -98,11 +99,10 @@ componentStyle.css`
 
 type ChannelParams = { target: string }
 
-const ChannelWidget = (props: DockviewWidgetProps<ChannelParams>, scope: Record<string, any>) => {
-	scope.trail = trail
+const ChannelWidget = (props: DockviewWidgetProps<ChannelParams>) => {
 	const target = () => props.params.target
 
-	type User = { name: string, ts?: number }
+	type User = { name: string; ts?: number }
 	const users = reactive<User[]>([])
 	const topic = reactive({ text: '', editing: false })
 	let topicEl: HTMLSpanElement | undefined
@@ -145,7 +145,10 @@ const ChannelWidget = (props: DockviewWidgetProps<ChannelParams>, scope: Record<
 	}
 
 	const onTopicKeydown = (e: KeyboardEvent) => {
-		if (e.key === 'Enter') { e.preventDefault(); submitTopic() }
+		if (e.key === 'Enter') {
+			e.preventDefault()
+			submitTopic()
+		}
 		if (e.key === 'Escape') cancelTopicEdit()
 	}
 
@@ -171,16 +174,18 @@ const ChannelWidget = (props: DockviewWidgetProps<ChannelParams>, scope: Record<
 				<span
 					this={topicEl}
 					contentEditable={topic.editing}
-					onClick={() => { if (!topic.editing) startTopicEdit() }}
+					onClick={() => {
+						if (!topic.editing) startTopicEdit()
+					}}
 					onKeydown={onTopicKeydown}
 					onBlur={submitTopic}
-				>{topic.text}</span>
+				>
+					{topic.text}
+				</span>
 			</div>
 			<div class="channel-body">
-				<div class="channel-messages" use:trail>
-					<for each={messagesForTarget(target())}>{(msg) =>
-						<MessageView message={msg} />
-					}</for>
+				<div class="channel-messages" use:tail>
+					<for each={messagesForTarget(target())}>{(msg) => <MessageView message={msg} />}</for>
 					<p class="channel-empty" if={messagesForTarget(target()).length === 0}>
 						<em>No messages yet</em>
 					</p>
@@ -188,12 +193,16 @@ const ChannelWidget = (props: DockviewWidgetProps<ChannelParams>, scope: Record<
 				<aside class="channel-aside" if={target().startsWith('#')}>
 					<h6>Agents ({users.length})</h6>
 					<ul>
-						<for each={users}>{(user) =>
-							<li>
-								<span style={{ fontWeight: user.name === settings.agent ? 'bold' : 'normal' }}>{user.name}</span>
-								{renderTimestamp(user.ts)}
-							</li>
-						}</for>
+						<for each={users}>
+							{(user) => (
+								<li>
+									<span style={{ fontWeight: user.name === settings.agent ? 'bold' : 'normal' }}>
+										{user.name}
+									</span>
+									{renderTimestamp(user.ts)}
+								</li>
+							)}
+						</for>
 						<li class="empty" if={users.length === 0}>
 							<em>No agents</em>
 						</li>

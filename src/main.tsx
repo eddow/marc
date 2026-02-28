@@ -1,28 +1,40 @@
-import '@pounce/core'
-import { bindApp } from '@pounce/core'
+import '@picocss/pico/css/pico.min.css'
+import '@pounce'
+import {
+	badge,
+	Dockview,
+	intersect,
+	latch,
+	loading,
+	pointer,
+	resize,
+	rootEnv,
+	scroll,
+	sizeable,
+	tail,
+	WithOverlays,
+} from '@pounce'
+import { type DockviewApi, Orientation, type SerializedDockview } from 'dockview-core'
 import { reactive } from 'mutts'
-import { Orientation, type DockviewApi, type SerializedDockview } from 'dockview-core'
-import { Dockview, WithOverlays, bindDialog } from '@pounce/ui'
-import { setAdapter } from '@pounce/ui'
-import { picoAdapter } from '@pounce/adapter-pico'
-import '@pounce/adapter-pico/css'
 import 'dockview-core/dist/styles/dockview.css'
 import './styles/app.sass'
-import ChannelWidget from './routes/channel'
-import AgentsWidget from './routes/agents'
-import ChannelsWidget from './routes/channels'
-import StreamWidget from './routes/stream'
-import BriefingWidget from './routes/briefing'
+import logo from './assets/logo.png'
 import Toolbar from './components/toolbar'
 import { dock } from './dock'
-import logo from './assets/logo.png'
-import { fetchMessages, subscribeAll } from './state'
+import AgentsWidget from './routes/agents'
+import BriefingWidget from './routes/briefing'
+import ChannelWidget from './routes/channel'
+import ChannelsWidget from './routes/channels'
+import StreamWidget from './routes/stream'
+import { subscribeAll } from './state'
 
-setAdapter(picoAdapter)
+// Make all directives available in the root scope
+const directives = { badge, intersect, loading, pointer, resize, sizeable, scroll, tail }
+Object.assign(rootEnv, directives)
 
 // Global data init
-fetchMessages()
-subscribeAll()
+const unsubscribe = subscribeAll()
+if (import.meta.hot) import.meta.hot.dispose(unsubscribe)
 
 // Layout persistence
 const LAYOUT_KEY = 'marc:layout'
@@ -32,15 +44,17 @@ const defaultLayout: SerializedDockview = {
 	grid: {
 		root: {
 			type: 'branch',
-			data: [{
-				type: 'leaf',
-				data: {
-					views: ['agents'],
-					activeView: 'agents',
-					id: 'default-group',
+			data: [
+				{
+					type: 'leaf',
+					data: {
+						views: ['agents'],
+						activeView: 'agents',
+						id: 'default-group',
+					},
+					size: 1,
 				},
-				size: 1,
-			}],
+			],
 		},
 		width: 800,
 		height: 600,
@@ -51,8 +65,11 @@ const defaultLayout: SerializedDockview = {
 	},
 }
 
+const parsedStorage = stored ? JSON.parse(stored) : null
+const isValidLayout = parsedStorage && typeof parsedStorage === 'object' && parsedStorage.grid
+
 const state = reactive({
-	layout: (stored ? JSON.parse(stored) : defaultLayout) as SerializedDockview,
+	layout: (isValidLayout ? parsedStorage : defaultLayout) as SerializedDockview,
 })
 
 const widgets = {
@@ -69,33 +86,47 @@ const DockviewWrapper = (_props: Record<string, never>, scope: Record<string, an
 		configurable: true,
 		set(api: DockviewApi) {
 			// Replace with plain value
-			Object.defineProperty(scope, 'api', { value: api, writable: true, configurable: true, enumerable: true })
+			Object.defineProperty(scope, 'api', {
+				value: api,
+				writable: true,
+				configurable: true,
+				enumerable: true,
+			})
 			dock.api = api
 			api.onDidLayoutChange(() => {
 				localStorage.setItem(LAYOUT_KEY, JSON.stringify(api.toJSON()))
 			})
 		},
-		get() { return undefined },
+		get() {
+			return undefined
+		},
 	})
 	return (
-		<Dockview
-			el={{ style: 'flex: 1; min-height: 0;' }}
-			widgets={widgets}
-			layout={state.layout}
-		/>
+		<div style="flex: 1; display: flex; flex-direction: column; min-height: 0;">
+			<Dockview el={{ style: 'flex: 1; min-height: 0;' }} widgets={widgets} layout={state.layout} />
+		</div>
 	)
 }
 
 const App = (_props: Record<string, never>, scope: Record<string, any>) => {
 	// Capture dialog helper for toolbar/widgets
 	const captureDialog = () => {
-		requestAnimationFrame(() => { dock.dialog = scope.dialog })
+		requestAnimationFrame(() => {
+			dock.dialog = scope.dialog
+		})
 	}
 	return (
-		<div class="marc-app dockview-theme-dark" style="height: 100vh; width: 100vw; display: flex; flex-direction: column;" use={captureDialog}>
-			<header class="marc-header" style="padding: 0.25rem 0.75rem;">
+		<div
+			class="marc-app dockview-theme-dark"
+			style="height: 100vh; width: 100vw; display: flex; flex-direction: column; overflow: hidden;"
+			use={captureDialog}
+		>
+			<header
+				class="marc-header"
+				style="height: 3rem; flex-shrink: 0; padding: 0.25rem 0.75rem; border-bottom: 1px solid var(--pico-muted-border-color);"
+			>
 				<div style="display: flex; align-items: center; gap: 0.75rem;">
-					<img src={logo} alt="mARC logo" style="height: 2.8rem; width: auto;" title="mARC" />
+					<img src={logo} alt="mARC logo" style="height: 2.5rem; width: auto;" title="mARC" />
 					<span style="opacity: 0.5; font-size: 0.7em;">mcp Agent Relay Chat</span>
 				</div>
 				<Toolbar />
@@ -105,10 +136,9 @@ const App = (_props: Record<string, never>, scope: Record<string, any>) => {
 	)
 }
 
-bindApp(
-	<WithOverlays extend={{ dialog: bindDialog }}>
+latch(
+	'#app',
+	<WithOverlays>
 		<App />
-	</WithOverlays>,
-	'#app'
+	</WithOverlays>
 )
-

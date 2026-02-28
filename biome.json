@@ -1,0 +1,101 @@
+{
+	"$schema": "https://biomejs.dev/schemas/2.3.13/schema.json",
+	"files": {
+		"includes": [
+			"src/**/*.ts",
+			"src/**/*.tsx",
+			"server/**/*.ts",
+			"sandbox/**/*.ts"
+		]
+	},
+	"overrides": [
+		{
+			"includes": ["**/*.spec.tsx", "**/*.spec.ts"],
+			"linter": {
+				"enabled": false
+			},
+			"formatter": {
+				"enabled": true
+			}
+		}
+	],
+	"javascript": {
+		"formatter": {
+			"lineWidth": 100,
+			"quoteStyle": "single",
+			"semicolons": "asNeeded",
+			"trailingCommas": "es5",
+			"indentStyle": "tab"
+		}
+	},
+	"linter": {
+		"rules": {
+			"style": {
+				"noNonNullAssertion": "off",
+				"useSingleVarDeclarator": {
+					"level": "warn",
+					"fix": "safe"
+				},
+				"useTemplate": {
+					"level": "warn",
+					"fix": "safe"
+				},
+				"noParameterAssign": "off",
+				"useImportType": { "level": "warn", "fix": "safe" },
+				"useConst": {
+					"level": "info",
+					"fix": "none"
+				}
+			},
+			"suspicious": {
+				"noExplicitAny": "off",
+				"noDebugger": "warn",
+				"noConsole": "off",
+				"noConfusingVoidType": "off",
+				"noAssignInExpressions": "off",
+				"noImplicitAnyLet": "off",
+				"useIterableCallbackReturn": "off",
+				"noRedeclare": "off",
+				"noShadowRestrictedNames": "off"
+			},
+			"performance": {
+				"noAccumulatingSpread": "off"
+			},
+			"complexity": {
+				"noUselessFragments": "off",
+				"noBannedTypes": "off"
+			},
+			"security": {},
+			"correctness": {
+				"noUnusedImports": {
+					"level": "info",
+					"fix": "safe"
+				},
+				"noUnusedFunctionParameters": {
+					"level": "info",
+					"fix": "safe"
+				},
+				"noUnusedLabels": "off"
+			},
+			"nursery": {},
+			"a11y": {
+				"useButtonType": "off",
+				"noStaticElementInteractions": "off",
+				"useValidAnchor": "off",
+				"useSemanticElements": "off",
+				"useKeyWithClickEvents": "off",
+				"useAriaPropsSupportedByRole": "off",
+				"noLabelWithoutControl": "off",
+				"noNoninteractiveElementToInteractiveRole": "off",
+				"noRedundantRoles": "off"
+			}
+		}
+	},
+	"assist": {
+		"actions": {
+			"source": {
+				"organizeImports": "on"
+			}
+		}
+	}
+}

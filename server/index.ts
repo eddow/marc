@@ -1,275 +1,266 @@
-import express from 'express'
-import cors from 'cors'
-import { resolve, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { randomUUID } from 'node:crypto'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { serve } from '@hono/node-server'
+import { serveStatic } from '@hono/node-server/serve-static'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
+import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js'
+import { createPounceMiddleware } from 'board/server'
+import { Hono } from 'hono'
 import { z } from 'zod'
-import { init, post, errata, allMessages, messagesForTarget, getNews, join, part, dismiss, deleteChannel, getUsers, getAllAgents, context, search, setTopic, getTopic, getBriefing, setBriefing, setDataDir } from './store.js'
+import {
+	errata,
+	getAllChannels,
+	getUsers,
+	init,
+	join,
+	part,
+	post,
+	resolveAgent,
+	search,
+	setAgentName,
+	setTopic,
+	sync as storeSync,
+	welcome,
+} from './store.js'
 
 init()
 
-const app = express()
+const app = new Hono()
 const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3001
-app.use(express.json())
-app.use(cors({ origin: true }))
+
 // Serve built dashboard from dist/ (same level as server/)
-app.use(express.static(resolve(dirname(fileURLToPath(import.meta.url)), '../dist')))
+app.use('/*', serveStatic({ root: './dist' }))
 
 // --- MCP Server Setup ---
+
+const ERR_NO_ID = 'Unknown agentId. Call sync() without agentId first.'
+const textResult = (text: string) => ({ content: [{ type: 'text' as const, text }] })
+const jsonResult = (obj: unknown) => textResult(JSON.stringify(obj))
+const errResult = (msg: string) => ({
+	content: [{ type: 'text' as const, text: msg }],
+	isError: true as const,
+})
+
+const requireAgent = (agentId: string): string | null => resolveAgent(agentId)
 
 const getServer = () => {
 	const server = new McpServer(
 		{ name: 'marc', version: '1.0.0' },
-		{ capabilities: { logging: {} } },
+		{ capabilities: { logging: {} } }
 	)
 
-	server.registerTool('post', {
-		description: 'Post a message to a channel (starting with #) or as a DM to a specific agent (user name). Set type to "action" for /me-style messages (e.g. "waves hello" renders as "* AgentName waves hello").',
-		inputSchema: { name: z.string(), target: z.string(), message: z.string(), type: z.enum(['text', 'action']).optional() },
-		annotations: { readOnlyHint: false, destructiveHint: false },
-	}, async ({ name, target, message, type }) => {
-		const id = post(name, target, message, type)
-		return { content: [{ type: 'text' as const, text: `Sent. (id: ${id})` }] }
-	})
+	server.registerTool(
+		'sync',
+		{
+			description:
+				'IMPORTANT: Call this FIRST on session start. Syncs you with the server. First call (omit agentId): assigns your unique agentId and delivers the operator briefing. Use this agentId in ALL subsequent tool calls. Do NOT store agentId in persistent memory. Subsequent calls: returns unread messages, changed topics, and briefing updates since last sync.',
+			inputSchema: { agentId: z.string().optional() },
+			annotations: { readOnlyHint: false },
+		},
+		async ({ agentId }) => {
+			let name: string | null
+			let assignedId: string | undefined
+			if (!agentId) {
+				const w = welcome()
+				assignedId = w.agentId
+				name = resolveAgent(assignedId)
+			} else {
+				name = requireAgent(agentId)
+				if (!name) {
+					// Agent provided an unknown id (e.g. their own name) — register them
+					const w = welcome()
+					assignedId = w.agentId
+					// Try to use the provided agentId as display name
+					setAgentName(assignedId, agentId)
+					name = resolveAgent(assignedId)
+				}
+			}
+			const news = storeSync(name!)
+			if (assignedId) return jsonResult({ agentId: assignedId, ...news })
+			return jsonResult(news)
+		}
+	)
 
-	server.registerTool('join', {
-		description: 'Join a channel (starting with #). Returns { history: Message[], topic: Topic | null }.',
-		inputSchema: { name: z.string(), target: z.string() },
-		annotations: { readOnlyHint: false, destructiveHint: false },
-	}, async ({ name, target }) => {
-		const result = join(name, target)
-		return { content: [{ type: 'text' as const, text: JSON.stringify(result) }] }
-	})
+	server.registerTool(
+		'setName',
+		{
+			description:
+				'Set your display name. Names must be unique. Before calling this, you appear as "anon-<id>".',
+			inputSchema: { agentId: z.string(), name: z.string() },
+			annotations: { readOnlyHint: false },
+		},
+		async ({ agentId, name }) => {
+			const result = setAgentName(agentId, name)
+			if (!result.ok) return errResult(result.error!)
+			return jsonResult({ ok: true, name: result.name })
+		}
+	)
 
-	server.registerTool('part', {
-		description: 'Leave a channel (starting with #)',
-		inputSchema: { name: z.string(), target: z.string() },
-		annotations: { readOnlyHint: false, destructiveHint: false },
-	}, async ({ name, target }) => {
-		part(name, target)
-		return { content: [{ type: 'text' as const, text: `Left ${target}` }] }
-	})
+	server.registerTool(
+		'join',
+		{
+			description:
+				'Join a channel (starting with #). Returns { history: Message[], topic: Topic | null }.',
+			inputSchema: { agentId: z.string(), target: z.string() },
+			annotations: { readOnlyHint: false, destructiveHint: false },
+		},
+		async ({ agentId, target }) => {
+			const name = requireAgent(agentId)
+			if (!name) return errResult(ERR_NO_ID)
+			const result = join(name, target)
+			return jsonResult(result)
+		}
+	)
 
-	server.registerTool('users', {
-		description: 'Get a list of agents in a channel with their last update timestamps',
-		inputSchema: { target: z.string() },
-		annotations: { readOnlyHint: true },
-	}, async ({ target }) => {
-		const users = getUsers(target)
-		return { content: [{ type: 'text' as const, text: JSON.stringify(users, null, 2) }] }
-	})
+	server.registerTool(
+		'post',
+		{
+			description:
+				'Post a message to a channel (starting with #) or as a DM to a specific agent (user name). Set type to "action" for /me-style messages (e.g. "waves hello" renders as "* AgentName waves hello").',
+			inputSchema: {
+				agentId: z.string(),
+				target: z.string(),
+				message: z.string(),
+				type: z.enum(['text', 'action']).optional(),
+			},
+			annotations: { readOnlyHint: false, destructiveHint: false },
+		},
+		async ({ agentId, target, message, type }) => {
+			const name = requireAgent(agentId)
+			if (!name) return errResult(ERR_NO_ID)
+			const id = post(name, target, message, type)
+			return textResult(`Sent. (id: ${id})`)
+		}
+	)
 
-	server.registerTool('errata', {
-		description: 'Edit a previously posted message by its ID',
-		inputSchema: { messageId: z.number(), newMessage: z.string() },
-		annotations: { readOnlyHint: false, destructiveHint: false },
-	}, async ({ messageId, newMessage }) => {
-		const ok = errata(messageId, newMessage)
-		return { content: [{ type: 'text' as const, text: ok ? 'Updated.' : 'Message not found.' }] }
-	})
+	server.registerTool(
+		'part',
+		{
+			description: 'Leave a channel (starting with #)',
+			inputSchema: { agentId: z.string(), target: z.string() },
+			annotations: { readOnlyHint: false, destructiveHint: false },
+		},
+		async ({ agentId, target }) => {
+			const name = requireAgent(agentId)
+			if (!name) return errResult(ERR_NO_ID)
+			part(name, target)
+			return textResult(`Left ${target}`)
+		}
+	)
 
-	server.registerTool('getNews', {
-		description: 'Get all unread messages from joined channels and DMs since your last read cursor. Edited messages (errata) will reappear if modified after your last read. Returns { messages: Message[], topics: Record<channel, Topic>, briefing?: Briefing } — topics only included if changed since last read. Briefing is the operator\'s instructions, included when updated since your last read.',
-		inputSchema: { name: z.string() },
-		annotations: { readOnlyHint: false },
-	}, async ({ name }) => {
-		const news = getNews(name)
-		return { content: [{ type: 'text' as const, text: JSON.stringify(news) }] }
-	})
+	server.registerTool(
+		'users',
+		{
+			description: 'Get a list of agents in a channel with their last update timestamps',
+			inputSchema: { target: z.string() },
+			annotations: { readOnlyHint: true },
+		},
+		async ({ target }) => {
+			const users = getUsers(target)
+			return jsonResult(users)
+		}
+	)
 
-	server.registerTool('context', {
-		description: 'Get a window of messages around a specific message ID. Returns up to `before` messages before it, the message itself, and up to `after` messages after it.',
-		inputSchema: { messageId: z.number(), before: z.number().optional(), after: z.number().optional() },
-		annotations: { readOnlyHint: true },
-	}, async ({ messageId, before, after }) => {
-		const msgs = context(messageId, before, after)
-		if (msgs.length === 0) return { content: [{ type: 'text' as const, text: 'Message not found.' }] }
-		return { content: [{ type: 'text' as const, text: JSON.stringify(msgs) }] }
-	})
+	server.registerTool(
+		'errata',
+		{
+			description: 'Edit a previously posted message by its ID',
+			inputSchema: { messageId: z.number(), newMessage: z.string() },
+			annotations: { readOnlyHint: false, destructiveHint: false },
+		},
+		async ({ messageId, newMessage }) => {
+			const ok = errata(messageId, newMessage)
+			return textResult(ok ? 'Updated.' : 'Message not found.')
+		}
+	)
 
-	server.registerTool('setTopic', {
-		description: 'Set the topic of a channel. The topic is a persistent sticky text shown to all agents on join and reported via getNews when changed.',
-		inputSchema: { name: z.string(), target: z.string(), topic: z.string() },
-		annotations: { readOnlyHint: false, destructiveHint: false },
-	}, async ({ name, target, topic }) => {
-		const result = setTopic(name, target, topic)
-		return { content: [{ type: 'text' as const, text: JSON.stringify(result) }] }
-	})
+	server.registerTool(
+		'setTopic',
+		{
+			description:
+				'Set the topic of a channel. The topic is a persistent sticky text shown to all agents on join and reported via sync when changed.',
+			inputSchema: { agentId: z.string(), target: z.string(), topic: z.string() },
+			annotations: { readOnlyHint: false, destructiveHint: false },
+		},
+		async ({ agentId, target, topic }) => {
+			const name = requireAgent(agentId)
+			if (!name) return errResult(ERR_NO_ID)
+			const result = setTopic(name, target, topic)
+			return jsonResult(result)
+		}
+	)
 
-	server.registerTool('search', {
-		description: 'Search messages by text (case-insensitive). Optionally filter by channel/DM target and/or sender. Returns newest matches first.',
-		inputSchema: { query: z.string(), target: z.string().optional(), from: z.string().optional(), limit: z.number().optional() },
-		annotations: { readOnlyHint: true },
-	}, async ({ query, target, from, limit }) => {
-		const results = search(query, target, from, limit)
-		return { content: [{ type: 'text' as const, text: JSON.stringify(results) }] }
-	})
+	server.registerTool(
+		'search',
+		{
+			description:
+				'Search messages with flexible filters. Returns newest matches first.\n' +
+				'Examples:\n' +
+				'- Search by text: {query: "hello"}\n' +
+				'- Search by sender only: {sender: "username"}\n' +
+				'- Search in channel: {target: "#general", query: "todo"}\n' +
+				'- Combined: {query: "error", sender: "bot", target: "#logs"}',
+			inputSchema: {
+				query: z.string().optional().describe('Full-text search in message content'),
+				target: z.string().optional().describe('Filter by channel or DM target'),
+				sender: z.string().optional().describe('Filter by message sender (username)'),
+				limit: z.number().optional().describe('Maximum results (default: 20)'),
+			},
+			annotations: { readOnlyHint: true },
+		},
+		async ({ query, target, sender, limit }) => {
+			const results = search(query, { target, sender, limit })
+			return jsonResult(results)
+		}
+	)
+
+	server.registerTool(
+		'list_channels',
+		{
+			description: 'List all available channels with their topics.',
+			inputSchema: {},
+			annotations: { readOnlyHint: true },
+		},
+		async () => {
+			return jsonResult(getAllChannels())
+		}
+	)
+
+	// Note: 'context' tool removed from mcp for brevity.
 
 	return server
 }
 
-// --- Dashboard API ---
+// --- Dashboard API (Board Integration) ---
 
-// GET /api/messages — all messages
-app.get('/api/messages', (_req, res) => {
-	res.json(allMessages())
-})
-
-// GET /api/messages/:target — messages for a target (channel or user)
-app.get('/api/messages/:target', (req, res) => {
-	res.json(messagesForTarget(req.params.target))
-})
-
-// GET /api/news/:name — unread messages for an agent (advances cursor)
-app.get('/api/news/:name', (req, res) => {
-	res.json(getNews(req.params.name))
-})
-
-// POST /api/post — send a message
-app.post('/api/post', (req, res) => {
-	const { name, target, message, type } = req.body
-	if (!name || !target || !message) {
-		res.status(400).json({ error: 'Missing name, target, or message' })
-		return
-	}
-	const id = post(name, target, message, type)
-	res.json({ ok: true, id })
-})
-
-// POST /api/join — agent joins a channel
-app.post('/api/join', (req, res) => {
-	const { name, target } = req.body
-	if (!name || !target) {
-		res.status(400).json({ error: 'Missing name or target' })
-		return
-	}
-	join(name, target)
-	res.json({ ok: true })
-})
-
-// POST /api/part — agent leaves a channel
-app.post('/api/part', (req, res) => {
-	const { name, target } = req.body
-	if (!name || !target) {
-		res.status(400).json({ error: 'Missing name or target' })
-		return
-	}
-	part(name, target)
-	res.json({ ok: true })
-})
-
-// POST /api/dismiss — kick an agent from all channels
-app.post('/api/dismiss', (req, res) => {
-	const { name } = req.body
-	if (!name) {
-		res.status(400).json({ error: 'Missing name' })
-		return
-	}
-	dismiss(name)
-	res.json({ ok: true })
-})
-
-// GET /api/users/:target — list agents in a channel
-app.get('/api/users/:target', (req, res) => {
-	res.json(getUsers(req.params.target))
-})
-
-// GET /api/agents — list all known agents
-app.get('/api/agents', (_req, res) => {
-	res.json(getAllAgents())
-})
-
-// POST /api/errata — edit a message
-app.post('/api/errata', (req, res) => {
-	const { messageId, newMessage } = req.body
-	if (!messageId || !newMessage) {
-		res.status(400).json({ error: 'Missing messageId or newMessage' })
-		return
-	}
-	const ok = errata(messageId, newMessage)
-	res.json({ ok })
-})
-
-// GET /api/topic/:target — get channel topic
-app.get('/api/topic/:target', (req, res) => {
-	res.json(getTopic(req.params.target))
-})
-
-// POST /api/topic — set channel topic
-app.post('/api/topic', (req, res) => {
-	const { name, target, topic } = req.body
-	if (!target || topic === undefined) {
-		res.status(400).json({ error: 'Missing target or topic' })
-		return
-	}
-	const result = setTopic(name || 'human', target, topic)
-	res.json({ ok: true, topic: result })
-})
-
-// GET /api/briefing — get current briefing
-app.get('/api/briefing', (_req, res) => {
-	res.json(getBriefing())
-})
-
-// POST /api/briefing — set briefing (human-only)
-app.post('/api/briefing', (req, res) => {
-	const { text } = req.body
-	if (text === undefined) {
-		res.status(400).json({ error: 'Missing text' })
-		return
-	}
-	const result = setBriefing(text)
-	res.json({ ok: true, briefing: result })
-})
-
-// POST /api/channels/delete — delete a channel and all its messages
-app.post('/api/channels/delete', (req, res) => {
-	const { name } = req.body
-	if (!name) {
-		res.status(400).json({ error: 'Missing channel name' })
-		return
-	}
-	deleteChannel(name)
-	res.json({ ok: true })
-})
-
-// SSE — poll all messages every 2s
-app.get('/api/stream', (req, res) => {
-	res.writeHead(200, {
-		'Content-Type': 'text/event-stream',
-		'Cache-Control': 'no-cache',
-		Connection: 'keep-alive',
-	})
-
-	let lastCount = 0
-	const poll = () => {
-		const msgs = allMessages()
-		if (msgs.length !== lastCount) {
-			lastCount = msgs.length
-			res.write(`data: ${JSON.stringify(msgs)}\n\n`)
-		}
-	}
-
-	poll()
-	const interval = setInterval(poll, 2000)
-	req.on('close', () => clearInterval(interval))
-})
+// Mount the route definitions exported as standard file-based APIs
+// Board middleware is cast through unknown to bridge the Hono Context generic
+// mismatch between linked packages (marc's hono vs board's hono).
+// At runtime the types are structurally identical — this is purely a TS artifact.
+const boardMiddleware = createPounceMiddleware({
+	routesDir: resolve(dirname(fileURLToPath(import.meta.url)), './routes'),
+}) as unknown as Parameters<typeof app.use>[0]
+app.use(boardMiddleware)
 
 // --- MCP Transport ---
 
 const transports: Record<string, StreamableHTTPServerTransport> = {}
 
-app.post('/mcp', async (req, res) => {
-	const sessionId = req.headers['mcp-session-id'] as string | undefined
+app.post('/mcp', async (c) => {
+	const req = c.req.raw
+	// @ts-expect-error - hono node adapter attaches standard res
+	const res = c.env?.res || c.res
+
+	const sessionId = req.headers.get('mcp-session-id') || undefined
 	try {
 		let transport: StreamableHTTPServerTransport
 
 		if (sessionId && transports[sessionId]) {
 			transport = transports[sessionId]
-		} else if (!sessionId && isInitializeRequest(req.body)) {
+		} else if (!sessionId && isInitializeRequest(await req.clone().json())) {
 			transport = new StreamableHTTPServerTransport({
 				sessionIdGenerator: () => randomUUID(),
 				onsessioninitialized: (sid) => {
@@ -283,43 +274,55 @@ app.post('/mcp', async (req, res) => {
 			const server = getServer()
 			await server.connect(transport)
 		} else {
-			res.status(400).json({
-				jsonrpc: '2.0',
-				error: { code: -32000, message: 'Invalid session' },
-				id: null,
-			})
-			return
+			return c.json(
+				{
+					jsonrpc: '2.0',
+					error: { code: -32000, message: 'Invalid session' },
+					id: null,
+				},
+				400
+			)
 		}
 
-		await transport.handleRequest(req, res, req.body)
+		await transport.handleRequest(req as any, res as any, await req.json())
+		return new Response(null, { status: 200 }) // Signal complete to Hono if response was handled directly
 	} catch (error) {
 		console.error('MCP error:', error)
-		if (!res.headersSent) {
-			res.status(500).json({
+		return c.json(
+			{
 				jsonrpc: '2.0',
 				error: { code: -32603, message: 'Internal error' },
 				id: null,
-			})
-		}
+			},
+			500
+		)
 	}
 })
 
-app.get('/mcp', async (req, res) => {
-	const sessionId = req.headers['mcp-session-id'] as string | undefined
+app.get('/mcp', async (c) => {
+	const req = c.req.raw
+	// @ts-expect-error
+	const res = c.env?.res || c.res
+	const sessionId = req.headers.get('mcp-session-id') || undefined
+
 	if (!sessionId || !transports[sessionId]) {
-		res.status(400).send('Invalid or missing session ID')
-		return
+		return c.text('Invalid or missing session ID', 400)
 	}
-	await transports[sessionId].handleRequest(req, res)
+	await transports[sessionId].handleRequest(req as any, res as any)
+	return new Response(null, { status: 200 })
 })
 
-app.delete('/mcp', async (req, res) => {
-	const sessionId = req.headers['mcp-session-id'] as string | undefined
+app.delete('/mcp', async (c) => {
+	const req = c.req.raw
+	// @ts-expect-error
+	const res = c.env?.res || c.res
+	const sessionId = req.headers.get('mcp-session-id') || undefined
+
 	if (!sessionId || !transports[sessionId]) {
-		res.status(400).send('Invalid or missing session ID')
-		return
+		return c.text('Invalid or missing session ID', 400)
 	}
-	await transports[sessionId].handleRequest(req, res)
+	await transports[sessionId].handleRequest(req as any, res as any)
+	return new Response(null, { status: 200 })
 })
 
 process.on('SIGINT', async () => {
@@ -330,9 +333,51 @@ process.on('SIGINT', async () => {
 	process.exit(0)
 })
 
-// --- Server Listen ---
-app.listen(port, () => {
-	console.log(`mARC unified server (Dashboard API + MCP) listening on http://localhost:${port}`)
-	console.log(`- Dashboard API: http://localhost:${port}/api/`)
-	console.log(`- MCP Endpoint:  http://localhost:${port}/mcp`)
+const sseTransports: Record<string, SSEServerTransport> = {}
+
+// --- SSE Transport for MCP clients that require it ---
+app.get('/sse', async (c) => {
+	// @ts-expect-error
+	const res = c.env?.res || c.res
+	const transport = new SSEServerTransport('/message', res as any)
+	const server = getServer()
+	await server.connect(transport)
+
+	const sid = transport.sessionId
+	sseTransports[sid] = transport
+	transport.onclose = () => {
+		delete sseTransports[sid]
+	}
+	return new Response(null, { status: 200 })
 })
+
+app.post('/message', async (c) => {
+	const req = c.req.raw
+	// @ts-expect-error
+	const res = c.env?.res || c.res
+	const url = new URL(req.url)
+	const sid = url.searchParams.get('sessionId')
+
+	if (!sid) return c.text('Session not found', 404)
+
+	const transport = sseTransports[sid]
+	if (!transport) return c.text('Session not found', 404)
+
+	await transport.handlePostMessage(req as any, res as any, await req.json())
+	return new Response(null, { status: 200 })
+})
+
+// --- Server Listen ---
+serve(
+	{
+		fetch: app.fetch,
+		port,
+	},
+	(info) => {
+		console.log(`mARC unified server (Hono Board + MCP) listening on http://localhost:${info.port}`)
+		console.log(`- Dashboard API: http://localhost:${info.port}/api/`)
+		console.log(`- Dashboard UI:  http://localhost:${info.port}/`)
+		console.log(`- MCP HTTP:      http://localhost:${info.port}/mcp`)
+		console.log(`- MCP SSE:       http://localhost:${info.port}/sse`)
+	}
+)

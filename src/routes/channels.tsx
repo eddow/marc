@@ -1,7 +1,7 @@
+import { componentStyle } from '@pounce/kit'
 import { reactive } from 'mutts'
-import { componentStyle } from '@pounce/kit/dom'
-import { channelNames, deleteChannel, settings, postMessage } from '../state'
 import { dock } from '../dock'
+import { channelNames, deleteChannel, postMessage, settings } from '../state'
 
 componentStyle.css`
 .channels-panel {
@@ -55,94 +55,50 @@ const ChannelsWidget = () => {
 	const onCreate = async () => {
 		const name = newChannel.name.trim()
 		if (!name) return
-
 		const target = name.startsWith('#') ? name : `#${name}`
-
-		// Post a message to create the channel implicitly
 		await postMessage(target, settings.agent, `created channel ${target}`, 'join')
 		newChannel.name = ''
-
-		// Open the panel
-		const api = dock.api
-		if (api) {
-			const id = `channel:${target}`
-			if (!api.panels.find(p => p.id === id)) {
-				api.addPanel({
-					id,
-					component: 'channel',
-					title: target,
-					params: { target }
-				})
-			} else {
-				// Focus if already exists
-				const panel = api.panels.find(p => p.id === id)
-				panel?.api.setActive()
-			}
-		}
+		openPanel(target)
 	}
 
 	const onDelete = async (target: string) => {
-		if (dock.dialog) {
-			const confirmed = await dock.dialog.confirm({
-				title: `Delete ${target}?`,
-				message: `Are you sure you want to delete ${target}? All messages will be lost.`
-			})
-			if (confirmed) {
-				await deleteChannel(target)
-			}
-		}
+		if (!dock.dialog) return
+		const confirmed = await dock.dialog.confirm({
+			title: `Delete ${target}?`,
+			message: `All messages in ${target} will be lost.`,
+		})
+		if (confirmed) await deleteChannel(target)
 	}
 
-	const onOpen = (target: string) => {
+	const openPanel = (target: string) => {
 		const api = dock.api
-		if (api) {
-			const id = `channel:${target}`
-			const existing = api.panels.find(p => p.id === id)
-			if (existing) {
-				existing.api.setActive()
-			} else {
-				api.addPanel({
-					id,
-					component: 'channel',
-					title: target,
-					params: { target }
-				})
-			}
-		}
+		if (!api) return
+		const id = `channel:${target}`
+		const existing = api.panels.find((p) => p.id === id)
+		if (existing) existing.api.setActive()
+		else api.addPanel({ id, component: 'channel', title: target, params: { target } })
 	}
 
 	const onInput = (e: Event) => {
 		newChannel.name = (e.target as HTMLInputElement).value
 	}
 
-	const onKeydown = (e: KeyboardEvent) => {
-		if (e.key === 'Enter') onCreate()
-	}
-
 	return (
 		<div class="channels-panel">
-			<label>Create Channel</label>
+			<h5>Channels</h5>
 			<fieldset role="group">
+				<input type="text" value="#" readOnly class="hash-prefix" tabIndex={-1} />
 				<input
 					type="text"
-					value="#"
-					readOnly
-					class="hash-prefix"
-					tabIndex={-1}
-				/>
-				<input
-					type="text"
-					placeholder="new-channel"
+					placeholder="channel-name"
 					value={newChannel.name}
 					onInput={onInput}
-					onKeydown={onKeydown}
+					onKeydown={(e: KeyboardEvent) => {
+						if (e.key === 'Enter') onCreate()
+					}}
 					class="channel-input"
 				/>
-				<button
-					onClick={onCreate}
-					disabled={!newChannel.name.trim()}
-					class="create-btn"
-				>
+				<button onClick={onCreate} disabled={!newChannel.name.trim()} class="create-btn">
 					Create
 				</button>
 			</fieldset>
@@ -155,22 +111,32 @@ const ChannelsWidget = () => {
 					</tr>
 				</thead>
 				<tbody>
-					<for each={channelNames()}>{(target) =>
-						<tr>
-							<td>
-								<a href="#" onClick={(e: Event) => { e.preventDefault(); onOpen(target) }}>
-									{target}
-								</a>
-							</td>
-							<td class="actions">
-								<button
-									class="outline contrast delete-btn"
-									onClick={() => onDelete(target)}
-									title="Delete Channel"
-								>🗑️</button>
-							</td>
-						</tr>
-					}</for>
+					<for each={channelNames()}>
+						{(target) => (
+							<tr>
+								<td>
+									<a
+										href="#"
+										onClick={(e: Event) => {
+											e.preventDefault()
+											openPanel(target)
+										}}
+									>
+										{target}
+									</a>
+								</td>
+								<td class="actions">
+									<button
+										class="outline contrast delete-btn"
+										onClick={() => onDelete(target)}
+										title="Delete"
+									>
+										🗑️
+									</button>
+								</td>
+							</tr>
+						)}
+					</for>
 					<tr if={channelNames().length === 0}>
 						<td colSpan={2} class="empty-row">
 							No active channels

@@ -1,7 +1,7 @@
-import { componentStyle } from '@pounce/kit/dom'
-import { Combobox } from '@pounce/ui'
+import { componentStyle } from '@pounce'
+import { type ComboboxProps, comboboxModel } from '@pounce/ui/models'
 import { dock } from '../dock'
-import { settings, setAgentName, targetNames } from '../state'
+import { setAgentName, settings, targetNames } from '../state'
 
 componentStyle.css`
 .toolbar {
@@ -9,10 +9,10 @@ componentStyle.css`
 	align-items: center;
 	gap: 0.35rem;
 }
-.toolbar .pounce-combobox {
+.toolbar .tb-combobox {
 	margin: 0;
 }
-.toolbar .pounce-combobox > input {
+.toolbar .tb-combobox > input {
 	padding: 0.15rem 0.4rem;
 	font-size: 0.75em;
 	margin: 0;
@@ -40,10 +40,15 @@ componentStyle.css`
 `
 
 const Toolbar = () => {
-	const openPanel = (id: string, component: string, title: string, params?: Record<string, string>) => {
+	const openPanel = (
+		id: string,
+		component: string,
+		title: string,
+		params?: Record<string, string>
+	) => {
 		const api = dock.api
 		if (!api) return
-		const existing = api.panels.find(p => p.id === id)
+		const existing = api.panels.find((p) => p.id === id)
 		if (existing) {
 			existing.api.setActive()
 			return
@@ -58,7 +63,7 @@ const Toolbar = () => {
 	const openAgents = () => openPanel('agents', 'agents', 'Agents')
 	const openStream = () => openPanel('stream', 'stream', 'All Messages')
 
-	const channels = () => targetNames().filter(t => t.startsWith('#'))
+	const channels = () => targetNames().filter((t) => t.startsWith('#'))
 
 	const onChannelPick = (e: KeyboardEvent) => {
 		if (e.key !== 'Enter') return
@@ -70,22 +75,41 @@ const Toolbar = () => {
 		input.value = ''
 	}
 
-
+	const combobox = comboboxModel({
+		get options() {
+			return channels()
+		},
+	} as ComboboxProps)
 
 	return (
 		<nav class="toolbar">
-			{channels()}
-			<Combobox
-				options={channels()}
-				placeholder="Channels…"
-				onKeydown={onChannelPick}
-			/>
-			<button class="outline contrast tb-btn" onClick={openAgents} title="Agents Dashboard">👥</button>
-			<button class="outline contrast tb-btn" onClick={openStream} title="All Messages">📜</button>
-			<button class="outline contrast tb-btn" onClick={() => openPanel('channels', 'channels', 'Channels')} title="Manage Channels">#</button>
-			<button class="outline contrast tb-btn" onClick={() => openPanel('briefing', 'briefing', 'Briefing')} title="Operator Briefing">📋</button>
+			<div class="tb-combobox">
+				<input placeholder="Channels…" onKeydown={onChannelPick} {...combobox.input} />
+				{combobox.dataList}
+			</div>
+			<button class="outline contrast tb-btn" onClick={openAgents} title="Agents Dashboard">
+				👥
+			</button>
+			<button class="outline contrast tb-btn" onClick={openStream} title="All Messages">
+				📜
+			</button>
+			<button
+				class="outline contrast tb-btn"
+				onClick={() => openPanel('channels', 'channels', 'Channels')}
+				title="Manage Channels"
+			>
+				#
+			</button>
+			<button
+				class="outline contrast tb-btn"
+				onClick={() => openPanel('briefing', 'briefing', 'Briefing')}
+				title="Operator Briefing"
+			>
+				📋
+			</button>
 			<span class="agent-label">
-				👤 <input
+				👤{' '}
+				<input
 					type="text"
 					class="pounce-input-inline"
 					value={settings.agent}

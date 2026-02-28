@@ -1,8 +1,8 @@
 {
 	"compilerOptions": {
 		"target": "ESNext",
-		"module": "NodeNext",
-		"moduleResolution": "NodeNext",
+		"module": "ESNext",
+		"moduleResolution": "bundler",
 		"strict": true,
 		"esModuleInterop": true,
 		"skipLibCheck": true,
@@ -14,7 +14,20 @@
 		"declaration": false,
 		"noUnusedLocals": false,
 		"noUnusedParameters": false,
-		"types": ["node"]
+		"types": [
+			"node"
+		],
+		"paths": {
+			"board": [
+				"../../pounce/packages/board/src/index.ts"
+			],
+			"board/server": [
+				"../../pounce/packages/board/src/server/index.ts"
+			],
+			"board/*": [
+				"../../pounce/packages/board/src/*"
+			]
+		}
 	},
 	"include": [
 		"./**/*.ts"

@@ -1,4 +1,6 @@
-import { reactive } from 'mutts'
+import { pounceOptions, prodPreset as pounceProdPreset } from '@pounce/core'
+import { api } from '@pounce/kit/api'
+import { effect, isReactive, prodPreset as muttsProdPreset, reactive, reactiveOptions } from 'mutts'
 
 export interface Message {
 	id: number
@@ -7,7 +9,24 @@ export interface Message {
 	text: string
 	ts: number
 	modified?: number
-	type?: 'text' | 'action' | 'join' | 'part'
+	type?:
+		| 'text'
+		| 'action'
+		| 'join'
+		| 'part'
+		| 'shell'
+		| 'shell-output'
+		| 'shell-error'
+		| 'shell-status'
+}
+
+export interface ShellChannel {
+	name: string
+	cwd: string
+	command: string
+	isRunning: boolean
+	pid?: number
+	createdAt: number
 }
 
 export interface Topic {
@@ -24,34 +43,80 @@ export interface Briefing {
 // All messages from the server
 export const messages = reactive<Message[]>([])
 
+export interface McpAgent {
+	id: string
+	name: string
+	ts?: number
+}
+
+// MCP agents (ephemeral — populated from SSE stream)
+export const mcpAgents = reactive<McpAgent[]>([])
+
+if (typeof window !== 'undefined') {
+	;(window as any).messages = messages
+	;(window as any).isReactive = isReactive
+	;(window as any).effect = effect
+	;(window as any).muttsOptions = reactiveOptions
+}
+
+// Apply production presets for performance as requested
+Object.assign(reactiveOptions, muttsProdPreset)
+Object.assign(pounceOptions, pounceProdPreset)
+
 // Derived: unique target names from messages
 export function targetNames(): string[] {
-	const set = new Set(messages.map(m => m.target))
+	if (typeof globalThis !== 'undefined')
+		(globalThis as any).__MUTTS_DEBUG__?.logLineage('targetNames')
+	const set = new Set(messages.map((m) => m.target))
 	return [...set].sort()
 }
 
-// Messages for a specific target
+// Derived: messages for a specific target
 export function messagesForTarget(target: string): Message[] {
-	return messages.filter(m => m.target === target)
+	if (typeof globalThis !== 'undefined')
+		(globalThis as any).__MUTTS_DEBUG__?.logLineage('messagesForTarget')
+	return messages.filter((m) => m.target === target)
 }
 
 // Derived: unique channel names (# prefixed) from messages
 export function channelNames(): string[] {
-	const set = new Set(messages.filter(m => m.target.startsWith('#')).map(m => m.target))
+	if (typeof globalThis !== 'undefined')
+		(globalThis as any).__MUTTS_DEBUG__?.logLineage('channelNames')
+	const set = new Set(messages.filter((m) => m.target.startsWith('#')).map((m) => m.target))
 	return [...set].sort()
 }
 
+// Derived: shell channel names ($ prefixed) from messages (fallback)
+export function shellChannelNames(): string[] {
+	return targetNames().filter((t) => t.startsWith('$'))
+}
+
+// Create default shell channels if they don't exist
+export function ensureDefaultShellChannels() {
+	const defaults = ['$dev', '$test', '$build']
+	for (const channel of defaults) {
+		if (!targetNames().includes(channel)) {
+			// Add a welcome message
+			messages.push({
+				id: messages.length + 1,
+				from: 'system',
+				target: channel,
+				text: `Shell channel: ${channel}\nCommands will be executed in the marc project directory.\nExample: npm run dev`,
+				ts: Date.now(),
+				type: 'text',
+			})
+		}
+	}
+}
+
 export async function deleteChannel(target: string): Promise<boolean> {
-	const res = await fetch('/api/channels/delete', {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ name: target }),
-	})
-	if (res.ok) {
+	try {
+		await api('/api/channels/delete').post({ name: target })
 		await fetchMessages()
 		return true
+	} catch {
+		return false
 	}
-	return false
 }
 
 // Persisted agent name
@@ -66,132 +131,158 @@ export function setAgentName(name: string) {
 }
 
 export async function fetchMessages(): Promise<void> {
-	const res = await fetch('/api/messages')
-	const data: Message[] = await res.json()
-	messages.length = 0
-	messages.push(...data)
+	try {
+		const data = await api('/api/messages').get<Message[]>()
+		console.log('[fetchMessages] fetched', data.length, 'messages')
+		messages.length = 0
+		messages.push(...data)
+	} catch (e) {
+		console.error('[fetchMessages] failed:', e)
+	}
 }
 
-export async function postMessage(target: string, agent: string, text: string, type: Message['type'] = 'text'): Promise<number | null> {
-	const res = await fetch('/api/post', {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ name: agent, target, message: text, type }),
-	})
-	if (res.ok) {
-		const data: { ok: boolean; id: number } = await res.json()
+export async function postMessage(
+	target: string,
+	agent: string,
+	text: string,
+	type: Message['type'] = 'text'
+): Promise<number | null> {
+	try {
+		const data = await api('/api/post').post<{ ok: boolean; id: number }>({
+			name: agent,
+			target,
+			message: text,
+			type,
+		})
 		await fetchMessages()
 		return data.id
+	} catch {
+		return null
 	}
-	return null
 }
 
 export async function editMessage(messageId: number, newMessage: string): Promise<boolean> {
-	const res = await fetch('/api/errata', {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ messageId, newMessage }),
-	})
-	if (res.ok) {
+	try {
+		await api('/api/errata').post({ messageId, newMessage })
 		await fetchMessages()
 		return true
+	} catch {
+		return false
 	}
-	return false
 }
 
 export async function joinChannel(agent: string, target: string): Promise<boolean> {
-	const res = await fetch('/api/join', {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ name: agent, target }),
-	})
-	if (res.ok) {
+	try {
+		await api('/api/join').post({ name: agent, target })
 		await fetchMessages()
 		return true
+	} catch {
+		return false
 	}
-	return false
 }
 
 export async function partChannel(agent: string, target: string): Promise<boolean> {
-	const res = await fetch('/api/part', {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ name: agent, target }),
-	})
-	if (res.ok) {
+	try {
+		await api('/api/part').post({ name: agent, target })
 		await fetchMessages()
 		return true
+	} catch {
+		return false
 	}
-	return false
 }
 
 export async function fetchTopic(target: string): Promise<Topic | null> {
-	const res = await fetch(`/api/topic/${encodeURIComponent(target)}`)
-	if (res.ok) return await res.json()
-	return null
+	try {
+		return await api(`/api/topic/${encodeURIComponent(target)}`).get<Topic>()
+	} catch {
+		return null
+	}
 }
 
 export async function setTopicApi(target: string, topic: string): Promise<boolean> {
-	const res = await fetch('/api/topic', {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ name: settings.agent, target, topic }),
-	})
-	return res.ok
+	try {
+		await api('/api/topic').post({ name: settings.agent, target, topic })
+		return true
+	} catch {
+		return false
+	}
 }
 
 export async function fetchBriefing(): Promise<Briefing | null> {
-	const res = await fetch('/api/briefing')
-	if (res.ok) return await res.json()
-	return null
+	try {
+		return await api('/api/briefing').get<Briefing>()
+	} catch {
+		return null
+	}
 }
 
 export async function setBriefingApi(text: string): Promise<boolean> {
-	const res = await fetch('/api/briefing', {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ text }),
-	})
-	return res.ok
+	try {
+		await api('/api/briefing').post({ text })
+		return true
+	} catch {
+		return false
+	}
 }
 
 export async function dismissAgent(agent: string): Promise<boolean> {
-	const res = await fetch('/api/dismiss', {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ name: agent }),
-	})
-	if (res.ok) {
+	try {
+		await api('/api/dismiss').post({ name: agent })
 		await fetchMessages()
 		return true
+	} catch {
+		return false
 	}
-	return false
 }
 
-export async function getUsers(target: string): Promise<{ name: string, ts?: number }[]> {
-	const res = await fetch(`/api/users/${encodeURIComponent(target)}`)
-	if (res.ok) {
-		return await res.json()
+export async function getUsers(target: string): Promise<{ name: string; ts?: number }[]> {
+	try {
+		return await api(`/api/users/${encodeURIComponent(target)}`).get<
+			{ name: string; ts?: number }[]
+		>()
+	} catch {
+		return []
 	}
-	return []
 }
 
-export async function getAllAgents(): Promise<{ name: string, ts?: number }[]> {
-	const res = await fetch('/api/agents')
-	if (res.ok) {
-		return await res.json()
+export async function getAllAgents(): Promise<McpAgent[]> {
+	try {
+		return await api('/api/agents').get<McpAgent[]>()
+	} catch {
+		return []
 	}
-	return []
 }
+
+type StreamEvent =
+	| { type: 'messages'; data: Message[] }
+	| { type: 'message'; data: Message }
+	| { type: 'agents'; data: McpAgent[] }
+	| { type: 'topic'; target: string; topic: { text: string; setBy: string; ts: number } }
+	| { type: 'briefing'; briefing: { text: string; updatedAt: number } }
+	| { type: 'channelDeleted'; target: string }
 
 export function subscribeAll(): () => void {
-	const source = new EventSource('/api/stream')
-	source.onmessage = (event) => {
-		const data: Message[] = JSON.parse(event.data)
-		messages.length = 0
-		messages.push(...data)
-	}
-	return () => source.close()
+	return api('/api/stream').stream<StreamEvent>(
+		(ev) => {
+			console.log('[SSE] received event', ev.type, 'isReactive(messages)=', isReactive(messages))
+			if (ev.type === 'messages') {
+				console.log('[SSE] messages snapshot, count=', ev.data.length)
+				messages.length = 0
+				messages.push(...ev.data)
+				console.log('[SSE] after push, messages.length=', messages.length)
+			} else if (ev.type === 'message') {
+				const idx = messages.findIndex((m) => m.id === ev.data.id)
+				if (idx >= 0) messages[idx] = ev.data
+				else messages.push(ev.data)
+			} else if (ev.type === 'agents') {
+				mcpAgents.length = 0
+				mcpAgents.push(...ev.data)
+			}
+		},
+		(error: unknown) => {
+			console.error('[state] Stream error:', error)
+		}
+	)
 }
 
 // Agent color: consistent hue from name
@@ -214,4 +305,69 @@ export function formatTimestamp(ts: number): string {
 	const d = new Date(ts)
 	const pad = (n: number) => String(n).padStart(2, '0')
 	return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+export async function fetchShellChannels(): Promise<ShellChannel[]> {
+	try {
+		return await api('/api/shell-channels').get<ShellChannel[]>()
+	} catch {
+		return []
+	}
+}
+
+export async function createShellChannelApi(
+	name: string,
+	cwd: string,
+	command: string
+): Promise<{ ok: boolean; error?: string }> {
+	try {
+		await api('/api/shell-channels').post({ name, cwd, command, user: settings.agent })
+		await fetchMessages() // To see the new channel in list if we use messages
+		return { ok: true }
+	} catch (e: unknown) {
+		return { ok: false, error: String(e) }
+	}
+}
+
+export async function deleteShellChannelApi(name: string): Promise<boolean> {
+	try {
+		await api(`/api/shell-channels/${encodeURIComponent(name)}`).del()
+		await fetchMessages()
+		return true
+	} catch {
+		return false
+	}
+}
+
+export async function startShellChannel(name: string): Promise<boolean> {
+	try {
+		const data = await api(`/api/shell-channels/${encodeURIComponent(name)}/start`).post<{
+			ok: boolean
+		}>({ user: settings.agent })
+		return data.ok
+	} catch {
+		return false
+	}
+}
+
+export async function stopShellChannel(name: string): Promise<boolean> {
+	try {
+		const data = await api(`/api/shell-channels/${encodeURIComponent(name)}/stop`).post<{
+			ok: boolean
+		}>({ user: settings.agent })
+		return data.ok
+	} catch {
+		return false
+	}
+}
+
+export async function sendShellInput(name: string, input: string): Promise<boolean> {
+	try {
+		const data = await api(`/api/shell-channels/${encodeURIComponent(name)}/input`).post<{
+			ok: boolean
+		}>({ input })
+		return data.ok
+	} catch {
+		return false
+	}
 }

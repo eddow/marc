@@ -3,8 +3,9 @@
 		"target": "ESNext",
 		"module": "ESNext",
 		"moduleResolution": "bundler",
-		"jsx": "react-jsx",
-		"jsxImportSource": "@pounce/core",
+		"jsx": "react",
+		"jsxFactory": "h",
+		"jsxFragmentFactory": "Fragment",
 		"strict": true,
 		"esModuleInterop": true,
 		"skipLibCheck": true,
@@ -15,16 +16,35 @@
 		"declaration": false,
 		"noUnusedLocals": false,
 		"noUnusedParameters": false,
+		"types": [
+			"node",
+			"@pounce/core"
+		],
 		"paths": {
-			"mutts": ["../mutts/dist/index.d.ts"],
-			"mutts/*": ["../mutts/dist/src/*"]
+			"@pounce": [
+				"./.generated-types/@pounce.d.ts"
+			],
+			"mutts": [
+				"../mutts/dist/index.d.ts"
+			],
+			"mutts/*": [
+				"../mutts/dist/src/*"
+			],
+			"board": [
+				"../pounce/packages/board/src/index.ts"
+			],
+			"board/server": [
+				"../pounce/packages/board/src/server/index.ts"
+			],
+			"board/*": [
+				"../pounce/packages/board/src/*"
+			]
 		}
 	},
 	"include": [
 		"src/**/*.ts",
-		"src/**/*.tsx"
+		"src/**/*.tsx",
+		".generated-types/@pounce.d.ts"
 	],
-	"exclude": [
-		"server"
-	]
+	"exclude": []
 }

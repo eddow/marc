@@ -1,6 +1,5 @@
-import { compose } from '@pounce/core'
+import { componentStyle } from '@pounce'
 import { reactive } from 'mutts'
-import { componentStyle } from '@pounce/kit/dom'
 import { postMessage, settings } from '../state'
 
 componentStyle.css`
@@ -31,7 +30,6 @@ type InputBarProps = {
 }
 
 const InputBar = (props: InputBarProps) => {
-	const state = compose({}, props)
 	const form = reactive({ text: '', sending: false })
 
 	const send = async () => {
@@ -39,9 +37,9 @@ const InputBar = (props: InputBarProps) => {
 		if (!text || form.sending) return
 		form.sending = true
 		if (text.startsWith('/me ')) {
-			await postMessage(state.target, settings.agent, text.slice(4), 'action')
+			await postMessage(props.target, settings.agent, text.slice(4), 'action')
 		} else {
-			await postMessage(state.target, settings.agent, text)
+			await postMessage(props.target, settings.agent, text)
 		}
 		form.text = ''
 		form.sending = false
@@ -51,15 +49,24 @@ const InputBar = (props: InputBarProps) => {
 		<div class="input-bar">
 			<textarea
 				value={form.text}
-				onInput={(e) => form.text = (e.target as HTMLTextAreaElement).value}
-				placeholder={`Message ${state.target}...`}
+				onInput={(e) => (form.text = (e.target as HTMLTextAreaElement).value)}
+				placeholder={`Message ${props.target}...`}
 				rows={2}
 				onKeydown={(e: KeyboardEvent) => {
-					if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() }
+					if (e.key === 'Enter' && !e.shiftKey) {
+						e.preventDefault()
+						send()
+					}
 				}}
 			/>
-			<button type="submit" disabled={form.sending}
-				onClick={(e: MouseEvent) => { e.preventDefault(); send() }}>
+			<button
+				type="submit"
+				disabled={form.sending}
+				onClick={(e: MouseEvent) => {
+					e.preventDefault()
+					send()
+				}}
+			>
 				Send
 			</button>
 		</div>

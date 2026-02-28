@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-import { resolve } from 'node:path'
 import { homedir } from 'node:os'
+import { resolve } from 'node:path'
 import { setDataDir } from './store.js'
 
-function parseArgs(argv: string[]): { port: number, data: string } {
+function parseArgs(argv: string[]): { port: number; data: string } {
 	const args = argv.slice(2)
 	let port = 3001
 	let data = ''

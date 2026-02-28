@@ -1,8 +1,6 @@
-import { effect, reactive } from 'mutts'
-import type { DockviewWidgetProps } from '@pounce/ui'
-import { componentStyle } from '@pounce/kit/dom'
-import { getAllAgents, dismissAgent, formatTimestamp, settings } from '../state'
+import { componentStyle, type DockviewWidgetProps } from '@pounce'
 import { dock } from '../dock'
+import { dismissAgent, formatTimestamp, mcpAgents, settings } from '../state'
 
 componentStyle.css`
 .agents-panel {
@@ -62,22 +60,9 @@ const formatDuration = (ms: number): string => {
 }
 
 const AgentsWidget = (_props: DockviewWidgetProps) => {
-	type Agent = { name: string, ts?: number }
-	const agents = reactive<Agent[]>([])
+	const sorted = () => [...mcpAgents].sort((a, b) => (b.ts ?? 0) - (a.ts ?? 0))
 
-	const refreshAgents = async () => {
-		const list = await getAllAgents()
-		agents.length = 0
-		agents.push(...list.sort((a, b) => (b.ts ?? 0) - (a.ts ?? 0)))
-	}
-
-	effect(() => {
-		refreshAgents()
-		const i = setInterval(refreshAgents, 3000)
-		return () => clearInterval(i)
-	})
-
-	const kick = async (agent: Agent) => {
+	const kick = async (agent: { id: string; name: string; ts?: number }) => {
 		if (!dock.dialog) return
 
 		const inactiveTime = agent.ts ? Date.now() - agent.ts : 0
@@ -87,12 +72,11 @@ const AgentsWidget = (_props: DockviewWidgetProps) => {
 
 		const confirmed = await dock.dialog.confirm({
 			title: `Dismiss ${agent.name}?`,
-			message: `${timeText} Dismissing will kick them from all channels.`
+			message: `${timeText} Dismissing will kick them from all channels.`,
 		})
 
 		if (confirmed) {
 			await dismissAgent(agent.name)
-			await refreshAgents()
 		}
 	}
 
@@ -107,7 +91,7 @@ const AgentsWidget = (_props: DockviewWidgetProps) => {
 		<div class="agents-panel">
 			<header>
 				<h3>Agents</h3>
-				<div class="count">Total: {agents.length}</div>
+				<div class="count">Total: {mcpAgents.length}</div>
 			</header>
 
 			<table class="striped">
@@ -119,25 +103,24 @@ const AgentsWidget = (_props: DockviewWidgetProps) => {
 					</tr>
 				</thead>
 				<tbody>
-					<for each={agents}>{(agent) =>
-						<tr>
-							<td>
-								<span style={{ fontWeight: agent.name === settings.agent ? 'bold' : 'normal' }}>
-									{agent.name} {agent.name === settings.agent ? '(You)' : ''}
-								</span>
-							</td>
-							<td>{renderStatus(agent.ts)}</td>
-							<td class="actions">
-								<button
-									class="outline contrast dismiss-btn"
-									onClick={() => kick(agent)}
-								>
-									Dismiss
-								</button>
-							</td>
-						</tr>
-					}</for>
-					<tr if={agents.length === 0}>
+					<for each={sorted()}>
+						{(agent) => (
+							<tr>
+								<td>
+									<span style={{ fontWeight: agent.name === settings.agent ? 'bold' : 'normal' }}>
+										{agent.name} {agent.name === settings.agent ? '(You)' : ''}
+									</span>
+								</td>
+								<td>{renderStatus(agent.ts)}</td>
+								<td class="actions">
+									<button class="outline contrast dismiss-btn" onClick={() => kick(agent)}>
+										Dismiss
+									</button>
+								</td>
+							</tr>
+						)}
+					</for>
+					<tr if={mcpAgents.length === 0}>
 						<td colSpan={3} class="empty-row">
 							No agents discovered yet.
 						</td>

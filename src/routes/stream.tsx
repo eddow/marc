@@ -1,8 +1,7 @@
+import { componentStyle, type DockviewWidgetProps } from '@pounce'
 import { reactive } from 'mutts'
-import type { DockviewWidgetProps } from '@pounce/ui'
-import { componentStyle } from '@pounce/kit/dom'
-import { messages, type Message } from '../state'
 import MessageView from '../components/message'
+import { type Message, messages } from '../state'
 
 componentStyle.css`
 .stream-panel {
@@ -64,7 +63,7 @@ const StreamWidget = (_props: DockviewWidgetProps) => {
 		let msgs = [...messages]
 		if (filter.agent.trim()) {
 			const lower = filter.agent.toLowerCase()
-			msgs = msgs.filter(m => m.from.toLowerCase().includes(lower))
+			msgs = msgs.filter((m) => m.from.toLowerCase().includes(lower))
 		}
 		if (filter.reversed) msgs.reverse()
 		return msgs
@@ -75,11 +74,7 @@ const StreamWidget = (_props: DockviewWidgetProps) => {
 			<header class="stream-header">
 				<h3>All Messages</h3>
 				<div class="stream-filters">
-					<input
-						type="text"
-						value={filter.agent}
-						placeholder="Filter by agent..."
-					/>
+					<input type="text" value={filter.agent} placeholder="Filter by agent..." />
 					<label>
 						<input type="checkbox" checked={filter.reversed} />
 						Newest first
@@ -87,9 +82,7 @@ const StreamWidget = (_props: DockviewWidgetProps) => {
 				</div>
 			</header>
 			<div class="stream-messages">
-				<for each={filtered()}>{(msg) =>
-					<MessageView message={msg} />
-				}</for>
+				<for each={filtered()}>{(msg) => <MessageView message={msg} />}</for>
 				<p class="stream-empty" if={messages.length === 0}>
 					<em>No messages yet</em>
 				</p>

@@ -1,5 +1,8 @@
-import { reactive } from 'mutts'
+import type { bindDialog } from '@pounce'
 import type { DockviewApi } from 'dockview-core'
-import type { bindDialog } from '@pounce/ui'
+import { reactive } from 'mutts'
 
-export const dock = reactive<{ api: DockviewApi | null, dialog: ReturnType<typeof bindDialog> | null }>({ api: null, dialog: null })
+export const dock = reactive<{
+	api: DockviewApi | null
+	dialog: ReturnType<typeof bindDialog> | null
+}>({ api: null, dialog: null })

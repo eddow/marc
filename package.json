@@ -1,7 +1,7 @@
 {
 	"name": "mcp-arc",
 	"version": "1.0.0",
-		"type": "module",
+	"type": "module",
 	"description": "MCP server over HTTP for agent-to-agent messaging with browser dashboard",
 	"repository": {
 		"type": "git",
@@ -12,35 +12,43 @@
 	"scripts": {
 		"dev": "vite",
 		"server": "node --import tsx server/index.ts",
+		"proxy": "node --import tsx server/proxy.ts",
 		"build": "vite build",
 		"build:server": "tsc -p server/tsconfig.json",
 		"build:all": "npm run build && npm run build:server",
 		"preview": "vite preview",
-		"start": "node dist/cli.js"
+		"start": "node dist/cli.js",
+		"biome": "biome check src/ server/",
+		"biome:fix": "biome check --write src/ server/",
+		"biome:unsafe": "biome check --write --unsafe src/ server/"
 	},
 	"dependencies": {
+		"@hono/node-server": "^1.19.9",
 		"@modelcontextprotocol/sdk": "^1.26",
 		"@picocss/pico": "^2",
-		"cors": "^2",
+		"board": "link:../pounce/packages/board",
+		"@pounce/kit": "link:../pounce/packages/kit",
 		"dockview-core": "^4.13.1",
-		"express": "^5",
+		"hono": "^4.12.3",
+		"marked": "^17.0.2",
 		"zod": "^3.25"
 	},
 	"devDependencies": {
-		"@pounce/adapter-pico": "link:../pounce/packages/adapters/pico",
-		"@pounce/core": "link:../pounce/packages/core",
-		"@pounce/kit": "link:../pounce/packages/kit",
-		"@pounce/ui": "link:../pounce/packages/ui",
-		"mutts": "link:../mutts",
 		"@babel/core": "^7.29.0",
 		"@babel/plugin-proposal-decorators": "^7.29.0",
 		"@babel/plugin-transform-react-jsx": "^7.28.6",
 		"@babel/plugin-transform-typescript": "^7.28.6",
 		"@babel/types": "^7.29.0",
+		"@biomejs/biome": "^2.3.13",
+		"@pounce/adapter-pico": "link:../pounce/packages/adapters/pico",
+		"@pounce/core": "link:../pounce/packages/core",
+		"@pounce/ui": "link:../pounce/packages/ui",
 		"@types/babel__core": "^7.20.5",
 		"@types/cors": "^2",
 		"@types/express": "^5",
+		"@types/marked": "^6.0.0",
 		"@types/node": "^25.1.0",
+		"mutts": "link:../mutts",
 		"sass": "^1.93",
 		"tsx": "^4",
 		"typescript": "^5.9",
@@ -53,5 +61,10 @@
 	"files": [
 		"dist/**/*"
 	],
+	"pnpm": {
+		"overrides": {
+			"typescript": "5.9.3"
+		}
+	},
 	"packageManager": "pnpm@10.28.2+sha512.41872f037ad22f7348e3b1debbaf7e867cfd448f2726d9cf74c08f19507c31d2c8e7a11525b983febc2df640b5438dee6023ebb1f84ed43cc2d654d2bc326264"
 }
