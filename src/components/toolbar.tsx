@@ -1,7 +1,6 @@
-import { componentStyle } from '@pounce'
-import { type ComboboxProps, comboboxModel } from '@pounce/ui/models'
-import { dock } from '../dock'
-import { setAgentName, settings, targetNames } from '../state'
+import { client, componentStyle } from '@pounce'
+import { channelPanelUrl, panelPaths } from '../panel-routes'
+import { channelNames, setAgentName, settings, shellChannelNames } from '../state'
 
 componentStyle.css`
 .toolbar {
@@ -9,14 +8,15 @@ componentStyle.css`
 	align-items: center;
 	gap: 0.35rem;
 }
-.toolbar .tb-combobox {
+.toolbar .tb-select {
 	margin: 0;
 }
-.toolbar .tb-combobox > input {
-	padding: 0.15rem 0.4rem;
+.toolbar .tb-select > select {
+	padding: 0.15rem 2rem 0.15rem 0.4rem;
 	font-size: 0.75em;
 	margin: 0;
-	min-width: 8rem;
+	min-width: 10rem;
+	height: auto;
 }
 .toolbar .tb-btn {
 	padding: 0.15rem 0.5rem;
@@ -40,52 +40,38 @@ componentStyle.css`
 `
 
 const Toolbar = () => {
-	const openPanel = (
-		id: string,
-		component: string,
-		title: string,
-		params?: Record<string, string>
-	) => {
-		const api = dock.api
-		if (!api) return
-		const existing = api.panels.find((p) => p.id === id)
-		if (existing) {
-			existing.api.setActive()
-			return
-		}
-		api.addPanel({ id, component, title, params })
+	const openPanel = (url: string) => {
+		client.navigate(url)
 	}
 
 	const openChannel = (target: string) => {
-		openPanel(`channel:${target}`, 'channel', target, { target })
+		openPanel(channelPanelUrl(target))
 	}
 
-	const openAgents = () => openPanel('agents', 'agents', 'Agents')
-	const openStream = () => openPanel('stream', 'stream', 'All Messages')
+	const openAgents = () => openPanel(panelPaths.agents)
+	const openStream = () => openPanel(panelPaths.stream)
 
-	const channels = () => targetNames().filter((t) => t.startsWith('#'))
-
-	const onChannelPick = (e: KeyboardEvent) => {
-		if (e.key !== 'Enter') return
-		const input = e.target as HTMLInputElement
-		const value = input.value.trim()
-		if (!value) return
-		const target = value.startsWith('#') ? value : `#${value}`
-		openChannel(target)
-		input.value = ''
-	}
-
-	const combobox = comboboxModel({
-		get options() {
-			return channels()
-		},
-	} as ComboboxProps)
+	const quickTargets = () => [...channelNames(), ...shellChannelNames()].sort()
 
 	return (
 		<nav class="toolbar">
-			<div class="tb-combobox">
-				<input placeholder="Channels…" onKeydown={onChannelPick} {...combobox.input} />
-				{combobox.dataList}
+			<div class="tb-select">
+				<select
+					onChange={(e: Event) => {
+						const select = e.target as HTMLSelectElement
+						if (select.value) {
+							openChannel(select.value)
+							select.value = ''
+						}
+					}}
+				>
+					<option value="" disabled selected>
+						Open channel…
+					</option>
+					<for each={quickTargets()}>
+						{(target) => <option value={target}>{target}</option>}
+					</for>
+				</select>
 			</div>
 			<button class="outline contrast tb-btn" onClick={openAgents} title="Agents Dashboard">
 				👥
@@ -95,14 +81,14 @@ const Toolbar = () => {
 			</button>
 			<button
 				class="outline contrast tb-btn"
-				onClick={() => openPanel('channels', 'channels', 'Channels')}
+				onClick={() => openPanel(panelPaths.channels)}
 				title="Manage Channels"
 			>
 				#
 			</button>
 			<button
 				class="outline contrast tb-btn"
-				onClick={() => openPanel('briefing', 'briefing', 'Briefing')}
+				onClick={() => openPanel(panelPaths.briefing)}
 				title="Operator Briefing"
 			>
 				📋

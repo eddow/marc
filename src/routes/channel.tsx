@@ -3,15 +3,30 @@ import type { DockviewWidgetProps } from '@pounce/ui'
 import { effect, reactive } from 'mutts'
 import InputBar from '../components/input-bar'
 import MessageView from '../components/message'
-import { fetchTopic, getUsers, messagesForTarget, setTopicApi, settings } from '../state'
+import {
+	fetchTopic,
+	getShellChannel,
+	getUsers,
+	postMessage as sendMessage,
+	messagesForTarget,
+	restartShellChannel,
+	sendShellInput,
+	setTopicApi,
+	settings,
+	startShellChannel,
+	stopShellChannel,
+} from '../state'
 
 componentStyle.css`
 .channel {
+	width: 100%;
 	height: 100%;
+	min-height: 0;
+	min-width: 0;
 	display: flex;
 	flex-direction: column;
 	overflow: hidden;
-	padding: 0.5rem;
+	box-sizing: border-box;
 }
 .channel-topic {
 	padding: 0.25rem 0.5rem;
@@ -38,18 +53,62 @@ componentStyle.css`
 	padding: 0.1rem 0.3rem;
 	opacity: 1;
 }
+.channel-shell {
+	padding: 0.5rem 0.75rem;
+	border-bottom: 1px solid var(--pico-muted-border-color, #333);
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
+	flex-wrap: wrap;
+	background: color-mix(in srgb, var(--pico-card-background-color, #1a1f29) 80%, transparent);
+}
+.channel-shell-meta {
+	display: flex;
+	flex-direction: column;
+	gap: 0.2rem;
+	min-width: 0;
+}
+.channel-shell-target {
+	font-weight: 700;
+	font-size: 0.95rem;
+	letter-spacing: 0.02em;
+}
+.channel-shell-command,
+.channel-shell-status {
+	font-family: var(--pico-font-family-monospace, monospace);
+	font-size: 0.8rem;
+	opacity: 0.72;
+	word-break: break-all;
+}
+.channel-shell-actions {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	margin-left: auto;
+}
+.channel-shell-actions button {
+	margin: 0;
+	width: auto;
+	padding: 0.35rem 0.75rem;
+	font-size: 0.8rem;
+}
 .channel-body {
 	display: flex;
-	flex: 1;
+	flex: 1 1 0;
 	min-height: 0;
 	gap: 0.5rem;
+	overflow: hidden;
 }
 .channel-messages {
-	flex: 1;
+	flex: 1 1 0;
 	min-height: 0;
-	overflow-y: auto;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	overflow-y: scroll;
 	overflow-x: hidden;
-	padding: 0.5rem;
+	padding: 0 0.5rem 0.5rem;
 	scroll-behavior: smooth;
 }
 .channel-empty {
@@ -59,8 +118,10 @@ componentStyle.css`
 }
 .channel-aside {
 	width: 200px;
+	min-width: 0;
+	min-height: 0;
 	border-left: 1px solid var(--pico-muted-border-color, #333);
-	padding-left: 0.5rem;
+	padding: 0 0 0.5rem 0.5rem;
 	display: flex;
 	flex-direction: column;
 }
@@ -101,14 +162,15 @@ type ChannelParams = { target: string }
 
 const ChannelWidget = (props: DockviewWidgetProps<ChannelParams>) => {
 	const target = () => props.params.target
+	const isShellTarget = () => target().startsWith('$')
+	const shellChannel = () => getShellChannel(target())
 
 	type User = { name: string; ts?: number }
 	const users = reactive<User[]>([])
 	const topic = reactive({ text: '', editing: false })
 	let topicEl: HTMLSpanElement | undefined
 
-	const refreshUsers = async () => {
-		const t = target()
+	const refreshUsers = async (t: string) => {
 		if (t.startsWith('#')) {
 			const list = await getUsers(t)
 			users.length = 0
@@ -118,11 +180,12 @@ const ChannelWidget = (props: DockviewWidgetProps<ChannelParams>) => {
 		}
 	}
 
-	const refreshTopic = async () => {
-		const t = target()
+	const refreshTopic = async (t: string) => {
 		if (t.startsWith('#')) {
 			const result = await fetchTopic(t)
 			topic.text = result?.text ?? ''
+		} else {
+			topic.text = ''
 		}
 	}
 
@@ -153,9 +216,12 @@ const ChannelWidget = (props: DockviewWidgetProps<ChannelParams>) => {
 	}
 
 	effect(() => {
-		refreshUsers()
-		refreshTopic()
-		const i = setInterval(refreshUsers, 3000)
+		const t = target()
+		refreshUsers(t)
+		refreshTopic(t)
+		const i = setInterval(() => {
+			refreshUsers(t)
+		}, 3000)
 		return () => clearInterval(i)
 	})
 
@@ -166,6 +232,24 @@ const ChannelWidget = (props: DockviewWidgetProps<ChannelParams>) => {
 		const d = new Date(ts)
 		const timeStr = `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}:${d.getSeconds().toString().padStart(2, '0')}`
 		return <span class="agent-time">{timeStr}</span>
+	}
+
+	const shellStatus = () => {
+		const current = shellChannel()
+		if (!current) return 'Unavailable'
+		if (current.isRunning) return current.pid ? `RUNNING · pid ${current.pid}` : 'RUNNING'
+		if (current.lastExitCode !== undefined) return `STOPPED · exit ${current.lastExitCode}`
+		return 'STOPPED'
+	}
+
+	const shellCommand = () => {
+		const current = shellChannel()
+		if (!current) return 'Missing shell channel configuration'
+		return `${current.cwd} $ ${current.command}`
+	}
+
+	const sendToShell = async (text: string) => {
+		return sendShellInput(target(), text.endsWith('\n') ? text : `${text}\n`)
 	}
 
 	return (
@@ -182,6 +266,36 @@ const ChannelWidget = (props: DockviewWidgetProps<ChannelParams>) => {
 				>
 					{topic.text}
 				</span>
+			</div>
+			<div class="channel-shell" if={isShellTarget()}>
+				<div class="channel-shell-meta">
+					<span class="channel-shell-target">{target()}</span>
+					<span class="channel-shell-command">{shellCommand()}</span>
+					<span class="channel-shell-status">{shellStatus()}</span>
+				</div>
+				<div class="channel-shell-actions">
+					<button
+						class="outline"
+						onClick={() => startShellChannel(target())}
+						disabled={shellChannel()?.isRunning}
+					>
+						Start
+					</button>
+					<button
+						class="outline contrast"
+						onClick={() => restartShellChannel(target())}
+						disabled={!shellChannel()}
+					>
+						Restart
+					</button>
+					<button
+						class="outline secondary"
+						onClick={() => stopShellChannel(target())}
+						disabled={!shellChannel()?.isRunning}
+					>
+						Stop
+					</button>
+				</div>
 			</div>
 			<div class="channel-body">
 				<div class="channel-messages" use:tail>
@@ -209,7 +323,18 @@ const ChannelWidget = (props: DockviewWidgetProps<ChannelParams>) => {
 					</ul>
 				</aside>
 			</div>
-			<InputBar target={target()} />
+			<InputBar
+				target={target()}
+				onSend={isShellTarget() ? sendToShell : async (text: string) => {
+					const t = target()
+					const type = text.startsWith('/me ') ? 'action' as const : 'text' as const
+					const body = type === 'action' ? text.slice(4) : text
+					return (await sendMessage(t, settings.agent, body, type)) !== null
+				}}
+				placeholder={isShellTarget() ? `Send stdin to ${target()}...` : `Message ${target()}...`}
+				sendLabel={isShellTarget() ? 'Write' : 'Send'}
+				disabled={isShellTarget() && !shellChannel()?.isRunning}
+			/>
 		</div>
 	)
 }

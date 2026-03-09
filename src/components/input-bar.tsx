@@ -6,19 +6,30 @@ componentStyle.css`
 .input-bar {
 	display: flex;
 	gap: 0.5rem;
-	padding: 0.5rem 0 0;
+	padding: 0;
 	margin: 0;
+	min-height: 0;
+	flex: 0 0 auto;
 	flex-shrink: 0;
 	align-items: stretch;
 }
 .input-bar textarea {
 	flex: 1;
+	min-height: 0;
+	box-sizing: border-box;
+	height: 2rem;
+	max-height: 2rem;
+	padding: 0.25rem 0.5rem;
+	line-height: 1.1;
 	resize: none;
 	margin-bottom: 0;
 }
 .input-bar button {
 	margin-bottom: 0;
-	padding: 0.4rem 0.75rem;
+	box-sizing: border-box;
+	padding: 0.25rem 0.75rem;
+	height: 2rem;
+	max-height: 2rem;
 	font-size: 0.8em;
 	width: auto;
 	flex-shrink: 0;
@@ -27,6 +38,11 @@ componentStyle.css`
 
 type InputBarProps = {
 	target: string
+	onSend?: (text: string) => Promise<boolean | void> | boolean | void
+	placeholder?: string
+	sendLabel?: string
+	rows?: number
+	disabled?: boolean
 }
 
 const InputBar = (props: InputBarProps) => {
@@ -34,14 +50,18 @@ const InputBar = (props: InputBarProps) => {
 
 	const send = async () => {
 		const text = form.text.trim()
-		if (!text || form.sending) return
+		if (!text || form.sending || props.disabled) return
 		form.sending = true
-		if (text.startsWith('/me ')) {
-			await postMessage(props.target, settings.agent, text.slice(4), 'action')
+		let ok = true
+		if (props.onSend) {
+			const result = await props.onSend(form.text)
+			ok = result !== false
+		} else if (text.startsWith('/me ')) {
+			ok = (await postMessage(props.target, settings.agent, text.slice(4), 'action')) !== null
 		} else {
-			await postMessage(props.target, settings.agent, text)
+			ok = (await postMessage(props.target, settings.agent, text)) !== null
 		}
-		form.text = ''
+		if (ok) form.text = ''
 		form.sending = false
 	}
 
@@ -50,8 +70,9 @@ const InputBar = (props: InputBarProps) => {
 			<textarea
 				value={form.text}
 				onInput={(e) => (form.text = (e.target as HTMLTextAreaElement).value)}
-				placeholder={`Message ${props.target}...`}
-				rows={2}
+				placeholder={props.placeholder ?? `Message ${props.target}...`}
+				rows={props.rows ?? 1}
+				disabled={props.disabled}
 				onKeydown={(e: KeyboardEvent) => {
 					if (e.key === 'Enter' && !e.shiftKey) {
 						e.preventDefault()
@@ -61,13 +82,13 @@ const InputBar = (props: InputBarProps) => {
 			/>
 			<button
 				type="submit"
-				disabled={form.sending}
+				disabled={form.sending || props.disabled || !form.text.trim()}
 				onClick={(e: MouseEvent) => {
 					e.preventDefault()
 					send()
 				}}
 			>
-				Send
+				{props.sendLabel ?? 'Send'}
 			</button>
 		</div>
 	)

@@ -22,6 +22,10 @@ componentStyle.css`
 .stream-header h3 {
 	margin: 0;
 }
+.stream-summary {
+	font-size: 0.8rem;
+	opacity: 0.65;
+}
 .stream-filters {
 	margin-left: auto;
 	display: flex;
@@ -44,10 +48,12 @@ componentStyle.css`
 }
 .stream-messages {
 	flex: 1;
+	min-height: 0;
 	overflow-y: auto;
 	border: 1px solid var(--pico-muted-border-color, #333);
 	border-radius: var(--pico-border-radius, 0.25rem);
 	padding: 0.5rem;
+	background: color-mix(in srgb, var(--pico-card-background-color, #1a1f29) 75%, transparent);
 }
 .stream-empty {
 	text-align: center;
@@ -57,15 +63,16 @@ componentStyle.css`
 `
 
 const StreamWidget = (_props: DockviewWidgetProps) => {
-	const filter = reactive({ agent: '', reversed: false })
+	const state = reactive({ agent: '', reversed: false })
 
 	const filtered = (): Message[] => {
+		void messages.length
 		let msgs = [...messages]
-		if (filter.agent.trim()) {
-			const lower = filter.agent.toLowerCase()
+		if (state.agent.trim()) {
+			const lower = state.agent.toLowerCase()
 			msgs = msgs.filter((m) => m.from.toLowerCase().includes(lower))
 		}
-		if (filter.reversed) msgs.reverse()
+		if (state.reversed) msgs.reverse()
 		return msgs
 	}
 
@@ -73,17 +80,31 @@ const StreamWidget = (_props: DockviewWidgetProps) => {
 		<div class="stream-panel">
 			<header class="stream-header">
 				<h3>All Messages</h3>
+				<span class="stream-summary">{filtered().length} visible</span>
 				<div class="stream-filters">
-					<input type="text" value={filter.agent} placeholder="Filter by agent..." />
+					<input
+						type="text"
+						value={state.agent}
+						placeholder="Filter by agent..."
+						onInput={(e: Event) => {
+							state.agent = (e.target as HTMLInputElement).value
+						}}
+					/>
 					<label>
-						<input type="checkbox" checked={filter.reversed} />
+						<input
+							type="checkbox"
+							checked={state.reversed}
+							onInput={(e: Event) => {
+								state.reversed = (e.target as HTMLInputElement).checked
+							}}
+						/>
 						Newest first
 					</label>
 				</div>
 			</header>
 			<div class="stream-messages">
 				<for each={filtered()}>{(msg) => <MessageView message={msg} />}</for>
-				<p class="stream-empty" if={messages.length === 0}>
+				<p class="stream-empty" if={filtered().length === 0}>
 					<em>No messages yet</em>
 				</p>
 			</div>

@@ -1,5 +1,6 @@
+import { type ChildProcessWithoutNullStreams, spawn } from 'node:child_process'
 import { EventEmitter } from 'node:events'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 export const storeEvents = new EventEmitter()
@@ -11,7 +12,15 @@ export interface Message {
 	text: string
 	ts: number
 	modified?: number
-	type?: 'text' | 'action' | 'join' | 'part'
+	type?:
+		| 'text'
+		| 'action'
+		| 'join'
+		| 'part'
+		| 'shell'
+		| 'shell-output'
+		| 'shell-error'
+		| 'shell-status'
 }
 
 export interface Topic {
@@ -30,8 +39,21 @@ export interface Agent {
 	name: string
 }
 
+export interface ShellChannel {
+	name: string
+	cwd: string
+	command: string
+	isRunning: boolean
+	pid?: number
+	lastExitCode?: number
+	createdAt: number
+	createdBy: string
+}
+
 // In-memory only — agent IDs are ephemeral (context-scoped, not persisted)
 const agents: Map<string, Agent> = new Map()
+const processes = new Map<string, ChildProcessWithoutNullStreams>()
+const transientMessages: Message[] = []
 
 function generateId(): string {
 	const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
@@ -106,6 +128,7 @@ interface StoreData {
 	joined: Record<string, string[]> // Agent Name -> List of Channel Targets
 	lastSeen: Record<string, number> // Agent Name -> Timestamp
 	topics: Record<string, Topic> // Channel -> Topic
+	shellChannels: Record<string, ShellChannel>
 	briefing: Briefing | null
 	nextId: number
 }
@@ -113,6 +136,7 @@ interface StoreData {
 let DATA_DIR = resolve(import.meta.dirname, '..', 'sandbox')
 let DATA_FILE = resolve(DATA_DIR, 'store.json')
 const MAX_MESSAGES = 500
+const MAX_TRANSIENT_MESSAGES = 1000
 
 let data: StoreData = {
 	messages: [],
@@ -120,6 +144,7 @@ let data: StoreData = {
 	joined: {},
 	lastSeen: {},
 	topics: {},
+	shellChannels: {},
 	briefing: null,
 	nextId: 1,
 }
@@ -152,8 +177,12 @@ function load(): void {
 				if (!data.joined) data.joined = {}
 				if (!data.lastSeen) data.lastSeen = {}
 				if (!data.topics) data.topics = {}
+				if (!data.shellChannels) data.shellChannels = {}
 				if (!data.briefing) data.briefing = null
-				delete (data as any).shellChannels
+				for (const shellChannel of Object.values(data.shellChannels)) {
+					shellChannel.isRunning = false
+					delete shellChannel.pid
+				}
 				data.messages.forEach((m) => {
 					if (!m.type) m.type = 'text'
 				})
@@ -166,6 +195,7 @@ function load(): void {
 				joined: {},
 				lastSeen: {},
 				topics: {},
+				shellChannels: {},
 				briefing: null,
 				nextId: 1,
 			}
@@ -184,10 +214,96 @@ function evict(): void {
 	}
 }
 
+function evictTransient(): void {
+	if (transientMessages.length > MAX_TRANSIENT_MESSAGES) {
+		transientMessages.splice(0, transientMessages.length - MAX_TRANSIENT_MESSAGES)
+	}
+}
+
+function nextMessageId(): number {
+	return data.nextId++
+}
+
+function emitTransientMessage(
+	from: string,
+	target: string,
+	text: string,
+	type: NonNullable<Message['type']>
+): Message {
+	const message: Message = { id: nextMessageId(), from, target, text, ts: Date.now(), type }
+	transientMessages.push(message)
+	evictTransient()
+	storeEvents.emit('message', message)
+	return message
+}
+
+function emitShellChannels(): void {
+	storeEvents.emit('shellChannels', listShellChannels())
+}
+
+function validateShellChannelName(name: string): string | null {
+	if (!name.startsWith('$')) return 'Shell channel names must start with $'
+	if (!/^\$[a-z0-9][a-z0-9-_]*$/i.test(name)) return 'Invalid shell channel name'
+	return null
+}
+
+function validateShellCommand(command: string): string | null {
+	if (!command.trim()) return 'Command is required'
+	if (/[|&;<>`]/.test(command)) return 'Command contains forbidden shell operators'
+	return null
+}
+
+function setShellChannelState(name: string, patch: Partial<ShellChannel>): ShellChannel | null {
+	const shellChannel = data.shellChannels[name]
+	if (!shellChannel) return null
+	Object.assign(shellChannel, patch)
+	save()
+	emitShellChannels()
+	return shellChannel
+}
+
+function flushShellBuffer(
+	target: string,
+	from: string,
+	buffer: string,
+	type: 'shell-output' | 'shell-error'
+) {
+	if (!buffer) return ''
+	const normalized = buffer.replace(/\r/g, '')
+	const lines = normalized.split('\n')
+	const remainder = normalized.endsWith('\n') ? '' : (lines.pop() ?? '')
+	for (const line of lines) {
+		emitTransientMessage(from, target, line, type)
+	}
+	return remainder
+}
+
+function clearTransientMessages(target: string): void {
+	for (let i = transientMessages.length - 1; i >= 0; i--) {
+		if (transientMessages[i].target === target) transientMessages.splice(i, 1)
+	}
+}
+
+function stopProcess(name: string, signal: NodeJS.Signals = 'SIGTERM'): boolean {
+	const process = processes.get(name)
+	if (!process) return false
+	process.kill(signal)
+	return true
+}
+
+function normalizeShellChannels() {
+	for (const shellChannel of Object.values(data.shellChannels)) {
+		shellChannel.isRunning = false
+		delete shellChannel.pid
+	}
+}
+
 // --- Public API ---
 
 export function init(): void {
 	load()
+	normalizeShellChannels()
+	save()
 }
 
 export function post(
@@ -196,13 +312,16 @@ export function post(
 	text: string,
 	type: Message['type'] = 'text'
 ): number {
-	const id = data.nextId++
+	const id = nextMessageId()
 	const message: Message = { id, from, target, text, ts: Date.now(), type }
 	data.messages.push(message)
 	evict()
+	const isNew = data.lastSeen[from] === undefined
+	data.lastSeen[from] = Date.now()
 	save()
 	// Notify SSE streams of the single new message
 	storeEvents.emit('message', message)
+	if (isNew) storeEvents.emit('agents', getMcpAgents())
 	return id
 }
 
@@ -229,7 +348,7 @@ export function sync(name: string): NewsResult {
 	// A message is "new" if its ts or modified timestamp exceeds the cursor
 	const msgTime = (m: Message) => Math.max(m.ts, m.modified ?? 0)
 	const isRelevant = (m: Message) => m.target === name || joinedChannels.has(m.target)
-	const news = data.messages.filter((m) => msgTime(m) > cursor && isRelevant(m))
+	const news = allMessages().filter((m) => msgTime(m) > cursor && isRelevant(m))
 
 	// Collect topic changes since cursor for joined channels
 	const changedTopics: Record<string, Topic> = {}
@@ -267,12 +386,12 @@ export function sync(name: string): NewsResult {
 
 /** All messages (for the dashboard UI - user sees everything) */
 export function allMessages(): Message[] {
-	return data.messages
+	return [...data.messages, ...transientMessages].sort((a, b) => a.ts - b.ts)
 }
 
 /** Messages for a specific target (channel or user) */
 export function messagesForTarget(target: string): Message[] {
-	return data.messages.filter((m) => m.target === target)
+	return allMessages().filter((m) => m.target === target)
 }
 
 // --- IRC Features ---
@@ -291,7 +410,7 @@ export function join(agent: string, target: string): JoinResult {
 		save()
 	}
 	return {
-		history: data.messages.filter((m) => m.target === target).slice(-50),
+		history: messagesForTarget(target).slice(-50),
 		topic: data.topics[target] ?? null,
 	}
 }
@@ -344,13 +463,21 @@ export function dismiss(agent: string): void {
 }
 
 export function getUsers(target: string): { name: string; ts?: number }[] {
-	// Find all agents who have 'target' in their joined list
-	return Object.entries(data.joined)
-		.filter(([_, channels]) => channels.includes(target))
-		.map(([agent]) => ({
-			name: agent,
-			ts: data.lastSeen[agent],
-		}))
+	const joined = new Set(
+		Object.entries(data.joined)
+			.filter(([_, channels]) => channels.includes(target))
+			.map(([agent]) => agent)
+	)
+	const senders = new Set(
+		data.messages
+			.filter((m) => m.target === target)
+			.map((m) => m.from)
+	)
+	const names = new Set([...joined, ...senders])
+	return Array.from(names).map((name) => ({
+		name,
+		ts: data.lastSeen[name],
+	}))
 }
 
 export function getAllAgents(): { name: string; ts?: number }[] {
@@ -360,12 +487,13 @@ export function getAllAgents(): { name: string; ts?: number }[] {
 	}))
 }
 
-/** MCP agents: ephemeral in-memory registry, with lastSeen timestamps from store */
+/** All known agents: merges persisted lastSeen with ephemeral MCP sessions */
 export function getMcpAgents(): { id: string; name: string; ts?: number }[] {
-	return Array.from(agents.values()).map((a) => ({
-		id: a.id,
-		name: a.name,
-		ts: data.lastSeen[a.name],
+	const mcpById = new Map(Array.from(agents.values()).map((a) => [a.name, a.id]))
+	return Object.keys(data.lastSeen).map((name) => ({
+		id: mcpById.get(name) ?? '',
+		name,
+		ts: data.lastSeen[name],
 	}))
 }
 
@@ -448,4 +576,179 @@ export function getAllChannels() {
 			).length,
 		}))
 		.sort((a, b) => a.name.localeCompare(b.name))
+}
+
+export function listShellChannels(): ShellChannel[] {
+	return Object.values(data.shellChannels).sort((a, b) => a.name.localeCompare(b.name))
+}
+
+export function getShellChannel(name: string): ShellChannel | null {
+	return data.shellChannels[name] ?? null
+}
+
+export function createShellChannel(input: {
+	name: string
+	cwd: string
+	command: string
+	createdBy: string
+}): { ok: true; channel: ShellChannel } | { ok: false; error: string } {
+	const nameError = validateShellChannelName(input.name)
+	if (nameError) return { ok: false, error: nameError }
+	const commandError = validateShellCommand(input.command)
+	if (commandError) return { ok: false, error: commandError }
+	if (data.shellChannels[input.name]) {
+		return { ok: false, error: `Shell channel ${input.name} already exists` }
+	}
+	const cwd = resolve(input.cwd)
+	if (!existsSync(cwd)) return { ok: false, error: `Directory does not exist: ${cwd}` }
+	if (!statSync(cwd).isDirectory()) return { ok: false, error: `Not a directory: ${cwd}` }
+	const channel: ShellChannel = {
+		name: input.name,
+		cwd,
+		command: input.command.trim(),
+		isRunning: false,
+		createdAt: Date.now(),
+		createdBy: input.createdBy,
+	}
+	data.shellChannels[channel.name] = channel
+	save()
+	emitShellChannels()
+	emitTransientMessage(
+		'system',
+		channel.name,
+		`${channel.cwd} $ ${channel.command}`,
+		'shell-status'
+	)
+	return { ok: true, channel }
+}
+
+export function deleteShellChannel(name: string): boolean {
+	const shellChannel = data.shellChannels[name]
+	if (!shellChannel) return false
+	stopProcess(name, 'SIGTERM')
+	delete data.shellChannels[name]
+	clearTransientMessages(name)
+	data.messages = data.messages.filter((m) => m.target !== name)
+	save()
+	emitShellChannels()
+	storeEvents.emit('channelDeleted', name)
+	return true
+}
+
+export function startShellChannel(
+	name: string,
+	requestedBy: string
+): { ok: true; channel: ShellChannel } | { ok: false; error: string } {
+	const shellChannel = data.shellChannels[name]
+	if (!shellChannel) return { ok: false, error: `Unknown shell channel: ${name}` }
+	if (processes.has(name) || shellChannel.isRunning) return { ok: true, channel: shellChannel }
+
+	const child = spawn(shellChannel.command, {
+		cwd: shellChannel.cwd,
+		shell: true,
+		env: process.env,
+		stdio: 'pipe',
+	})
+	processes.set(name, child)
+	setShellChannelState(name, {
+		isRunning: true,
+		pid: child.pid,
+		lastExitCode: undefined,
+	})
+	emitTransientMessage(
+		'system',
+		name,
+		`Started by ${requestedBy}: ${shellChannel.command}`,
+		'shell'
+	)
+
+	let stdoutBuffer = ''
+	let stderrBuffer = ''
+	child.stdout.on('data', (chunk: Buffer | string) => {
+		if (!data.shellChannels[name]) return
+		stdoutBuffer += chunk.toString()
+		stdoutBuffer = flushShellBuffer(name, 'stdout', stdoutBuffer, 'shell-output')
+	})
+	child.stderr.on('data', (chunk: Buffer | string) => {
+		if (!data.shellChannels[name]) return
+		stderrBuffer += chunk.toString()
+		stderrBuffer = flushShellBuffer(name, 'stderr', stderrBuffer, 'shell-error')
+	})
+	child.on('error', (error) => {
+		if (!data.shellChannels[name]) return
+		emitTransientMessage('system', name, error.message, 'shell-error')
+	})
+	child.on('close', (code, signal) => {
+		if (!data.shellChannels[name]) {
+			processes.delete(name)
+			return
+		}
+		stdoutBuffer = flushShellBuffer(name, 'stdout', `${stdoutBuffer}\n`, 'shell-output')
+		stderrBuffer = flushShellBuffer(name, 'stderr', `${stderrBuffer}\n`, 'shell-error')
+		processes.delete(name)
+		setShellChannelState(name, {
+			isRunning: false,
+			pid: undefined,
+			lastExitCode: code ?? undefined,
+		})
+		emitTransientMessage(
+			'system',
+			name,
+			signal ? `Stopped (${signal})` : `Exited (${code ?? 0})`,
+			'shell-status'
+		)
+	})
+
+	return { ok: true, channel: data.shellChannels[name] }
+}
+
+export async function restartShellChannel(
+	name: string,
+	requestedBy: string
+): Promise<{ ok: true; channel: ShellChannel } | { ok: false; error: string }> {
+	const shellChannel = data.shellChannels[name]
+	if (!shellChannel) return { ok: false, error: `Unknown shell channel: ${name}` }
+	const child = processes.get(name)
+	if (child) {
+		await new Promise<void>((resolveClose) => {
+			child.once('close', () => resolveClose())
+			stopProcess(name, 'SIGTERM')
+		})
+	}
+	return startShellChannel(name, requestedBy)
+}
+
+export function stopShellChannel(
+	name: string,
+	requestedBy: string
+): { ok: boolean; error?: string } {
+	const shellChannel = data.shellChannels[name]
+	if (!shellChannel) return { ok: false, error: `Unknown shell channel: ${name}` }
+	const stopped = stopProcess(name, 'SIGTERM')
+	if (!stopped) return { ok: false, error: `Shell channel ${name} is not running` }
+	emitTransientMessage('system', name, `Stop requested by ${requestedBy}`, 'shell-status')
+	return { ok: true }
+}
+
+export function sendShellInput(name: string, input: string): { ok: boolean; error?: string } {
+	const shellChannel = data.shellChannels[name]
+	if (!shellChannel) return { ok: false, error: `Unknown shell channel: ${name}` }
+	const child = processes.get(name)
+	if (!child) return { ok: false, error: `Shell channel ${name} is not running` }
+	child.stdin.write(input)
+	emitTransientMessage('stdin', name, input.replace(/\n$/, ''), 'shell-status')
+	return { ok: true }
+}
+
+export async function shutdown(): Promise<void> {
+	const running = Array.from(processes.entries())
+	await Promise.all(
+		running.map(
+			([name, child]) =>
+				new Promise<void>((resolveClose) => {
+					child.once('close', () => resolveClose())
+					stopProcess(name, 'SIGTERM')
+				})
+		)
+	)
 }

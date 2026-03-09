@@ -1,6 +1,8 @@
-import type { RequestContext } from 'board'
+import { expose, type PounceRequest } from 'board'
 import { getUsers } from '../../../store.js'
 
-export async function get(ctx: RequestContext) {
-	return { status: 200, data: getUsers(ctx.params.target) }
-}
+export default expose<{ target: string }>({
+	async get(req: PounceRequest<{ target: string }>) {
+		return getUsers(req.params.target)
+	},
+})

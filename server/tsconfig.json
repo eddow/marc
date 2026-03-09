@@ -7,29 +7,19 @@
 		"esModuleInterop": true,
 		"skipLibCheck": true,
 		"forceConsistentCasingInFileNames": true,
-		"resolveJsonModule": true,
-		"isolatedModules": true,
-		"noEmit": false,
-		"outDir": "../dist",
-		"declaration": false,
-		"noUnusedLocals": false,
-		"noUnusedParameters": false,
-		"types": [
-			"node"
-		],
-		"paths": {
-			"board": [
-				"../../pounce/packages/board/src/index.ts"
-			],
-			"board/server": [
-				"../../pounce/packages/board/src/server/index.ts"
-			],
-			"board/*": [
-				"../../pounce/packages/board/src/*"
-			]
-		}
-	},
-	"include": [
-		"./**/*.ts"
+  		"resolveJsonModule": true,
+  		"isolatedModules": true,
+  		"noEmit": false,
+ 		"rootDir": ".",
+  		"outDir": "../dist",
+  		"declaration": false,
+  		"noUnusedLocals": false,
+  		"noUnusedParameters": false,
+  		"types": [
+  			"node"
+		]
+  	},
+  	"include": [
+  		"./**/*.ts"
 	]
 }

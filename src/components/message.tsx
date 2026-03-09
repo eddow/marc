@@ -72,7 +72,7 @@ const MessageView = (props: MessageProps) => {
 		>
 			<header class="msg-header">
 				<time class="msg-time">{formatTimestamp(msg.ts).split(' ')[1]}</time>
-				<strong class="msg-author" style={`color: ${color}`} if={!isSystem}>
+				<strong class="msg-author" use={(el: HTMLElement) => { el.style.setProperty('--agent-color', color) }} if={!isSystem}>
 					{isAction ? '* ' : ''}
 					{msg.from}
 				</strong>
@@ -123,6 +123,7 @@ componentStyle.css`
 }
 .msg-author {
 	font-size: 0.9em;
+	color: var(--agent-color);
 }
 .msg-system {
 	font-size: 0.8em;

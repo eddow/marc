@@ -1,6 +1,8 @@
-import type { RequestContext } from 'board'
+import { expose } from 'board'
 import { getMcpAgents } from '../../store.js'
 
-export async function get(_ctx: RequestContext) {
-	return { status: 200, data: getMcpAgents() }
-}
+export default expose({
+	async get() {
+		return getMcpAgents()
+	},
+})

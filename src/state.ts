@@ -1,5 +1,5 @@
 import { pounceOptions, prodPreset as pounceProdPreset } from '@pounce/core'
-import { api } from '@pounce/kit/api'
+import { api } from '@pounce/kit'
 import { effect, isReactive, prodPreset as muttsProdPreset, reactive, reactiveOptions } from 'mutts'
 
 export interface Message {
@@ -26,7 +26,9 @@ export interface ShellChannel {
 	command: string
 	isRunning: boolean
 	pid?: number
+	lastExitCode?: number
 	createdAt: number
+	createdBy: string
 }
 
 export interface Topic {
@@ -52,6 +54,8 @@ export interface McpAgent {
 // MCP agents (ephemeral — populated from SSE stream)
 export const mcpAgents = reactive<McpAgent[]>([])
 
+export const shellChannels = reactive<ShellChannel[]>([])
+
 if (typeof window !== 'undefined') {
 	;(window as any).messages = messages
 	;(window as any).isReactive = isReactive
@@ -67,6 +71,7 @@ Object.assign(pounceOptions, pounceProdPreset)
 export function targetNames(): string[] {
 	if (typeof globalThis !== 'undefined')
 		(globalThis as any).__MUTTS_DEBUG__?.logLineage('targetNames')
+	void messages.length
 	const set = new Set(messages.map((m) => m.target))
 	return [...set].sort()
 }
@@ -75,6 +80,7 @@ export function targetNames(): string[] {
 export function messagesForTarget(target: string): Message[] {
 	if (typeof globalThis !== 'undefined')
 		(globalThis as any).__MUTTS_DEBUG__?.logLineage('messagesForTarget')
+	void messages.length
 	return messages.filter((m) => m.target === target)
 }
 
@@ -82,31 +88,18 @@ export function messagesForTarget(target: string): Message[] {
 export function channelNames(): string[] {
 	if (typeof globalThis !== 'undefined')
 		(globalThis as any).__MUTTS_DEBUG__?.logLineage('channelNames')
+	void messages.length
 	const set = new Set(messages.filter((m) => m.target.startsWith('#')).map((m) => m.target))
 	return [...set].sort()
 }
 
 // Derived: shell channel names ($ prefixed) from messages (fallback)
 export function shellChannelNames(): string[] {
-	return targetNames().filter((t) => t.startsWith('$'))
+	return shellChannels.map((channel) => channel.name)
 }
 
-// Create default shell channels if they don't exist
-export function ensureDefaultShellChannels() {
-	const defaults = ['$dev', '$test', '$build']
-	for (const channel of defaults) {
-		if (!targetNames().includes(channel)) {
-			// Add a welcome message
-			messages.push({
-				id: messages.length + 1,
-				from: 'system',
-				target: channel,
-				text: `Shell channel: ${channel}\nCommands will be executed in the marc project directory.\nExample: npm run dev`,
-				ts: Date.now(),
-				type: 'text',
-			})
-		}
-	}
+export function getShellChannel(name: string): ShellChannel | null {
+	return shellChannels.find((channel) => channel.name === name) ?? null
 }
 
 export async function deleteChannel(target: string): Promise<boolean> {
@@ -131,11 +124,13 @@ export function setAgentName(name: string) {
 }
 
 export async function fetchMessages(): Promise<void> {
+	console.log('[fetchMessages] fetching...')
 	try {
-		const data = await api('/api/messages').get<Message[]>()
-		console.log('[fetchMessages] fetched', data.length, 'messages')
-		messages.length = 0
-		messages.push(...data)
+		const res = await fetch('/api/messages')
+		console.log('[fetchMessages] status:', res.status)
+		const data: Message[] = await res.json()
+		console.log('[fetchMessages] count:', data.length)
+		messages.splice(0, messages.length, ...data)
 	} catch (e) {
 		console.error('[fetchMessages] failed:', e)
 	}
@@ -247,42 +242,59 @@ export async function getUsers(target: string): Promise<{ name: string; ts?: num
 
 export async function getAllAgents(): Promise<McpAgent[]> {
 	try {
-		return await api('/api/agents').get<McpAgent[]>()
+		const res = await fetch('/api/agents')
+		return await res.json()
 	} catch {
 		return []
 	}
+}
+
+export async function preloadInitialData(): Promise<void> {
+	console.log('[preloadInitialData] starting...')
+	const [_, agents, shells] = await Promise.all([
+		fetchMessages(),
+		getAllAgents(),
+		fetchShellChannels(),
+	])
+	console.log('[preloadInitialData] fetched all:', { agents: agents.length, shells: shells.length })
+	mcpAgents.splice(0, mcpAgents.length, ...agents)
+	shellChannels.splice(0, shellChannels.length, ...shells)
+	console.log('[preloadInitialData] finished')
 }
 
 type StreamEvent =
 	| { type: 'messages'; data: Message[] }
 	| { type: 'message'; data: Message }
 	| { type: 'agents'; data: McpAgent[] }
+	| { type: 'shellChannels'; data: ShellChannel[] }
 	| { type: 'topic'; target: string; topic: { text: string; setBy: string; ts: number } }
 	| { type: 'briefing'; briefing: { text: string; updatedAt: number } }
 	| { type: 'channelDeleted'; target: string }
 
 export function subscribeAll(): () => void {
-	return api('/api/stream').stream<StreamEvent>(
-		(ev) => {
-			console.log('[SSE] received event', ev.type, 'isReactive(messages)=', isReactive(messages))
-			if (ev.type === 'messages') {
-				console.log('[SSE] messages snapshot, count=', ev.data.length)
-				messages.length = 0
-				messages.push(...ev.data)
-				console.log('[SSE] after push, messages.length=', messages.length)
-			} else if (ev.type === 'message') {
-				const idx = messages.findIndex((m) => m.id === ev.data.id)
-				if (idx >= 0) messages[idx] = ev.data
-				else messages.push(ev.data)
-			} else if (ev.type === 'agents') {
-				mcpAgents.length = 0
-				mcpAgents.push(...ev.data)
+	const es = new EventSource('/api/stream')
+	es.onmessage = (e: MessageEvent) => {
+		const ev: StreamEvent = JSON.parse(e.data)
+		if (ev.type === 'messages') {
+			messages.splice(0, messages.length, ...ev.data)
+		} else if (ev.type === 'message') {
+			const idx = messages.findIndex((m) => m.id === ev.data.id)
+			if (idx >= 0) messages.splice(idx, 1, ev.data)
+			else messages.push(ev.data)
+		} else if (ev.type === 'agents') {
+			mcpAgents.splice(0, mcpAgents.length, ...ev.data)
+		} else if (ev.type === 'shellChannels') {
+			shellChannels.splice(0, shellChannels.length, ...ev.data)
+		} else if (ev.type === 'channelDeleted') {
+			for (let i = messages.length - 1; i >= 0; i--) {
+				if (messages[i].target === ev.target) messages.splice(i, 1)
 			}
-		},
-		(error: unknown) => {
-			console.error('[state] Stream error:', error)
+			const idx = shellChannels.findIndex((ch) => ch.name === ev.target)
+			if (idx >= 0) shellChannels.splice(idx, 1)
 		}
-	)
+	}
+	es.onerror = (e) => console.error('[state] SSE error:', e)
+	return () => es.close()
 }
 
 // Agent color: consistent hue from name
@@ -322,7 +334,6 @@ export async function createShellChannelApi(
 ): Promise<{ ok: boolean; error?: string }> {
 	try {
 		await api('/api/shell-channels').post({ name, cwd, command, user: settings.agent })
-		await fetchMessages() // To see the new channel in list if we use messages
 		return { ok: true }
 	} catch (e: unknown) {
 		return { ok: false, error: String(e) }
@@ -332,7 +343,6 @@ export async function createShellChannelApi(
 export async function deleteShellChannelApi(name: string): Promise<boolean> {
 	try {
 		await api(`/api/shell-channels/${encodeURIComponent(name)}`).del()
-		await fetchMessages()
 		return true
 	} catch {
 		return false
@@ -353,6 +363,17 @@ export async function startShellChannel(name: string): Promise<boolean> {
 export async function stopShellChannel(name: string): Promise<boolean> {
 	try {
 		const data = await api(`/api/shell-channels/${encodeURIComponent(name)}/stop`).post<{
+			ok: boolean
+		}>({ user: settings.agent })
+		return data.ok
+	} catch {
+		return false
+	}
+}
+
+export async function restartShellChannel(name: string): Promise<boolean> {
+	try {
+		const data = await api(`/api/shell-channels/${encodeURIComponent(name)}/restart`).post<{
 			ok: boolean
 		}>({ user: settings.agent })
 		return data.ok

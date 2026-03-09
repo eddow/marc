@@ -11,13 +11,14 @@
 	"license": "MIT",
 	"scripts": {
 		"dev": "vite",
-		"server": "node --import tsx server/index.ts",
-		"proxy": "node --import tsx server/proxy.ts",
+		"server": "node --import tsx server/cli.ts serve",
+		"proxy": "node --import tsx server/cli.ts stdio",
 		"build": "vite build",
 		"build:server": "tsc -p server/tsconfig.json",
 		"build:all": "npm run build && npm run build:server",
 		"preview": "vite preview",
-		"start": "node dist/cli.js",
+		"start": "node dist/cli.js serve",
+		"test:server": "node --import tsx --test --test-concurrency=1 server/*.test.ts",
 		"biome": "biome check src/ server/",
 		"biome:fix": "biome check --write src/ server/",
 		"biome:unsafe": "biome check --write --unsafe src/ server/"
@@ -26,11 +27,12 @@
 		"@hono/node-server": "^1.19.9",
 		"@modelcontextprotocol/sdk": "^1.26",
 		"@picocss/pico": "^2",
-		"board": "link:../pounce/packages/board",
 		"@pounce/kit": "link:../pounce/packages/kit",
+		"board": "link:../pounce/packages/board",
 		"dockview-core": "^4.13.1",
 		"hono": "^4.12.3",
 		"marked": "^17.0.2",
+		"soup-chop": "^1.0.3",
 		"zod": "^3.25"
 	},
 	"devDependencies": {

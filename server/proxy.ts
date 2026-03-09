@@ -1,69 +1,30 @@
 #!/usr/bin/env node
-import { exit } from 'node:process'
-import * as readline from 'node:readline'
+import { basename, dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { resolveMarcConfig } from './config.js'
+import { type CliInvocation } from './runtime.js'
+import { startMarcStdioBridge } from './stdio.js'
 
-const MCP_SERVER_URL = process.env.MCP_SERVER_URL || 'http://localhost:3001/mcp'
-
-// Create readline interface for stdin/stdout
-const rl = readline.createInterface({
-	input: process.stdin,
-	output: process.stdout,
-	terminal: false,
-})
-
-// Process each line from stdin (JSON-RPC requests)
-rl.on('line', async (line: string) => {
-	try {
-		const response = await fetch(MCP_SERVER_URL, {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-				Accept: 'application/json, text/event-stream',
-			},
-			body: line,
-		})
-
-		if (response.headers.get('content-type')?.includes('text/event-stream')) {
-			// Handle SSE response - convert to regular JSON for stdio
-			const reader = response.body?.getReader()
-			const decoder = new TextDecoder()
-			let buffer = ''
-
-			if (reader) {
-				while (true) {
-					const { done, value } = await reader.read()
-					if (done) break
-
-					buffer += decoder.decode(value, { stream: true })
-					const lines = buffer.split('\n')
-					buffer = lines.pop() || ''
-
-					for (const l of lines) {
-						if (l.startsWith('data: ')) {
-							const data = l.slice(6)
-							if (data) {
-								console.log(data)
-							}
-						}
-					}
-				}
-			}
-		} else {
-			// Handle JSON response
-			const data = await response.text()
-			console.log(data)
+function currentCliInvocation(): CliInvocation {
+	const cliEntry = resolve(process.argv[1] || fileURLToPath(import.meta.url))
+	const cliDir = dirname(cliEntry)
+	const cwd =
+		basename(cliDir) === 'server' || basename(cliDir) === 'dist' ? dirname(cliDir) : cliDir
+	if (cliEntry.endsWith('.ts')) {
+		return {
+			command: process.execPath,
+			args: ['--import', 'tsx', resolve(cwd, 'server/cli.ts')],
+			cwd,
 		}
-	} catch (error) {
-		console.error(
-			JSON.stringify({
-				jsonrpc: '2.0',
-				error: { code: -32603, message: error instanceof Error ? error.message : String(error) },
-				id: null,
-			})
-		)
 	}
-})
+	return {
+		command: process.execPath,
+		args: [resolve(cwd, 'dist/cli.js')],
+		cwd,
+	}
+}
 
-// Handle process termination
-process.on('SIGINT', () => exit(0))
-process.on('SIGTERM', () => exit(0))
+await startMarcStdioBridge({
+	config: resolveMarcConfig(),
+	invocation: currentCliInvocation(),
+})
