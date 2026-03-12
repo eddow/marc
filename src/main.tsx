@@ -3,19 +3,18 @@ import '@pounce/adapter-pico/pico.sass'
 import '@pounce'
 import {
 	badge,
-	DockviewRouter,
 	intersect,
 	latch,
 	loading,
 	pointer,
 	resize,
 	rootEnv,
+	StandardOverlays,
 	scroll,
 	sizeable,
-	StandardOverlays,
 	tail,
-	WithOverlays,
 } from '@pounce'
+import { DockviewRouter } from '@pounce/ui/dockview'
 import type { DockviewApi, SerializedDockview } from 'dockview-core'
 import { reactive } from 'mutts'
 import 'dockview-core/dist/styles/dockview.css'
@@ -66,7 +65,9 @@ const DockviewWrapper = (_props: Record<string, never>, scope: Record<string, an
 			api.onDidLayoutChange(() => {
 				const json = api.toJSON()
 				if (json.panels && Object.keys(json.panels).length > 0) {
-					console.log('[DockviewWrapper] Saving layout...', { panelCount: Object.keys(json.panels).length })
+					console.log('[DockviewWrapper] Saving layout...', {
+						panelCount: Object.keys(json.panels).length,
+					})
 					localStorage.setItem(LAYOUT_KEY, JSON.stringify(json))
 				}
 			})
@@ -79,7 +80,10 @@ const DockviewWrapper = (_props: Record<string, never>, scope: Record<string, an
 		<div style="flex: 1 1 0; min-height: 0; min-width: 0; overflow: hidden; display: flex; flex-direction: column;">
 			<DockviewRouter
 				debug="mARC-Router"
-				el={{ style: 'flex: 1 1 0; min-height: 0; min-width: 0; width: 100%; height: 100%; overflow: hidden;' }}
+				el={{
+					style:
+						'flex: 1 1 0; min-height: 0; min-width: 0; width: 100%; height: 100%; overflow: hidden;',
+				}}
 				routes={marcPanelRoutes}
 				layout={state.layout}
 				initialUrl={getInitialPanelUrl(state.layout)}

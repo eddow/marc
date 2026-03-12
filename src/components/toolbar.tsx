@@ -68,9 +68,7 @@ const Toolbar = () => {
 					<option value="" disabled selected>
 						Open channel…
 					</option>
-					<for each={quickTargets()}>
-						{(target) => <option value={target}>{target}</option>}
-					</for>
+					<for each={quickTargets()}>{(target) => <option value={target}>{target}</option>}</for>
 				</select>
 			</div>
 			<button class="outline contrast tb-btn" onClick={openAgents} title="Agents Dashboard">

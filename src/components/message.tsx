@@ -4,13 +4,14 @@ import { effect, reactive } from 'mutts'
 import type { Message as Msg } from '../state'
 import { agentColor, editMessage, formatTimestamp, settings } from '../state'
 
-type MessageProps = { message: Msg }
+type MessageProps = { message: Msg; compact?: boolean }
 
 const MessageView = (props: MessageProps) => {
 	const msg = props.message
 	const type = msg.type ?? 'text'
 	const isSystem = type === 'join' || type === 'part'
 	const isAction = type === 'action'
+	const isShell = type === 'shell-output' || type === 'shell-error'
 	const color = isSystem ? 'gray' : agentColor(msg.from)
 	const isMine = msg.from === settings.agent
 	const edit = reactive({ active: false })
@@ -50,29 +51,40 @@ const MessageView = (props: MessageProps) => {
 
 	const mountMarkdown = (el: HTMLElement) => {
 		textEl = el as HTMLParagraphElement
-		effect(() => {
+		effect`message:markdown`(() => {
 			const text = msg.text
 			if (edit.active) {
 				el.textContent = text
 			} else {
-				Promise.resolve(marked(text))
-					.then((html) => {
-						el.innerHTML = html
-					})
-					.catch(() => {
-						el.textContent = text
-					})
+				if (isShell) {
+					el.textContent = text
+				} else {
+					Promise.resolve(marked(text))
+						.then((html) => {
+							el.innerHTML = html
+						})
+						.catch(() => {
+							el.textContent = text
+						})
+				}
 			}
 		})
 	}
 
 	return (
 		<article
-			style={`padding: 0.25rem 0.5rem; margin: 0; background: transparent; border: none; font-style: ${isAction || isSystem ? 'italic' : 'normal'}; opacity: ${isSystem ? 0.7 : 1};`}
+			class={props.compact ? 'msg-compact' : ''}
+			style={`padding: ${props.compact ? '0 0.5rem' : '0.25rem 0.5rem'}; margin: 0; background: transparent; border: none; font-style: ${isAction || isSystem ? 'italic' : 'normal'}; opacity: ${isSystem ? 0.7 : 1}; ${isShell ? 'font-family: var(--pico-font-family-monospace, monospace); font-size: 0.85em; line-height: 1.2;' : ''}`}
 		>
-			<header class="msg-header">
+			<header class="msg-header" if={!props.compact}>
 				<time class="msg-time">{formatTimestamp(msg.ts).split(' ')[1]}</time>
-				<strong class="msg-author" use={(el: HTMLElement) => { el.style.setProperty('--agent-color', color) }} if={!isSystem}>
+				<strong
+					class="msg-author"
+					use={(el: HTMLElement) => {
+						el.style.setProperty('--agent-color', color)
+					}}
+					if={!isSystem}
+				>
 					{isAction ? '* ' : ''}
 					{msg.from}
 				</strong>
@@ -93,12 +105,12 @@ const MessageView = (props: MessageProps) => {
 			</header>
 			<p
 				class="msg-text"
-				style={`color: ${isAction ? color : 'inherit'}`}
+				style={`color: ${isShell && type === 'shell-error' ? 'var(--pico-del-color, #f44)' : isAction ? color : 'inherit'}; white-space: pre-wrap;`}
 				contentEditable={edit.active}
 				use={mountMarkdown}
 				onKeydown={onKeydown}
 			></p>
-			<small class="msg-edited" if={msg.modified}>
+			<small class="msg-edited" if={msg.modified && !props.compact}>
 				(edited)
 			</small>
 		</article>
@@ -108,6 +120,12 @@ const MessageView = (props: MessageProps) => {
 export default MessageView
 
 componentStyle.css`
+.msg-compact {
+	border-left: 2px solid transparent;
+}
+.msg-compact:hover {
+	border-left-color: var(--pico-primary, #1095c1);
+}
 .msg-header {
 	padding: 0;
 	margin-top: 0;

@@ -1,7 +1,7 @@
 import {
 	buildRoute,
-	client,
 	type ClientRouteDefinition,
+	client,
 	type DockviewWidgetProps,
 	type RouterModelRouteDefinition,
 } from '@pounce'
@@ -149,7 +149,7 @@ function normalizePanel(panel: DockviewPanelSnapshot): DockviewPanelSnapshot {
 		...panel,
 		id: url,
 		contentComponent: nextComponent,
-		title: panel.title ?? (panel.params?.target ?? url),
+		title: panel.title ?? panel.params?.target ?? url,
 		params: {
 			...(panel.params ?? {}),
 			...(nextComponent === panelPaths.channel && panel.params?.target
@@ -164,7 +164,8 @@ function normalizePanel(panel: DockviewPanelSnapshot): DockviewPanelSnapshot {
 function rewriteNode(node: DockviewNode, idMap: ReadonlyMap<string, string>) {
 	if (node.type === 'leaf') {
 		node.data.views = node.data.views.map((view) => idMap.get(view) ?? view)
-		if (node.data.activeView) node.data.activeView = idMap.get(node.data.activeView) ?? node.data.activeView
+		if (node.data.activeView)
+			node.data.activeView = idMap.get(node.data.activeView) ?? node.data.activeView
 		return
 	}
 	for (const child of node.data) rewriteNode(child, idMap)
@@ -231,7 +232,11 @@ export function getInitialPanelUrl(layout: SerializedDockview): string {
 	const activeId = findActiveView(normalized.grid.root)
 	if (!activeId) return panelPaths.agents
 	const panel = normalized.panels[activeId]
-	return panel?.params?.url ?? panelUrlForComponent(panel?.contentComponent ?? '', panel?.params) ?? panelPaths.agents
+	return (
+		panel?.params?.url ??
+		panelUrlForComponent(panel?.contentComponent ?? '', panel?.params) ??
+		panelPaths.agents
+	)
 }
 
 export function getRouteId(url: string) {

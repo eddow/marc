@@ -1,15 +1,16 @@
+import console from 'node:console'
+import { randomUUID } from 'node:crypto'
 import { basename, dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { HttpBindings, ServerType } from '@hono/node-server'
 import { serve } from '@hono/node-server'
 import { serveStatic } from '@hono/node-server/serve-static'
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js'
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js'
 import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js'
 import { createPounceMiddleware } from 'board/server'
 import { Hono } from 'hono'
-import { randomUUID } from 'node:crypto'
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { MarcConfig } from './config.js'
 import { marcHttpUrl } from './config.js'
 import { clearDaemonState, writeDaemonState } from './runtime.js'
@@ -38,8 +39,6 @@ import {
 	textResult,
 	unknownAgentResult,
 } from './tools.js'
-import console from 'node:console'
-import { connect } from 'node:http2'
 
 const responseAlreadySent = new Response(null, {
 	headers: { 'x-hono-already-sent': 'true' },
@@ -80,7 +79,9 @@ function createMarcMcpServer(): McpServer {
 		},
 		setName: ({ agentId, name }) => {
 			const result = setAgentName(agentId, name)
-			return result.ok ? jsonResult({ ok: true, name: result.name }) : errResult(result.error ?? 'Unknown error')
+			return result.ok
+				? jsonResult({ ok: true, name: result.name })
+				: errResult(result.error ?? 'Unknown error')
 		},
 		join: ({ agentId, target }) => {
 			const name = resolveAgent(agentId)
@@ -99,12 +100,14 @@ function createMarcMcpServer(): McpServer {
 			return textResult(`Left ${target}`)
 		},
 		users: ({ target }) => jsonResult(getUsers(target)),
-		errata: ({ messageId, newMessage }) => textResult(errata(messageId, newMessage) ? 'Updated.' : 'Message not found.'),
+		errata: ({ messageId, newMessage }) =>
+			textResult(errata(messageId, newMessage) ? 'Updated.' : 'Message not found.'),
 		setTopic: ({ agentId, target, topic }) => {
 			const name = resolveAgent(agentId)
 			return name ? jsonResult(setTopic(name, target, topic)) : unknownAgentResult()
 		},
-		search: ({ query, target, sender, limit }) => jsonResult(search(query, { target, sender, limit })),
+		search: ({ query, target, sender, limit }) =>
+			jsonResult(search(query, { target, sender, limit })),
 		listChannels: () => jsonResult(getAllChannels()),
 	})
 	return server
@@ -131,15 +134,21 @@ export async function startMarcDaemon(config: MarcConfig): Promise<StartedMarcDa
 		})
 	)
 	app.use('/*', serveStatic({ root: staticRoot() }))
-	const boardMiddleware = createPounceMiddleware({ routesDir: routesDir() }) as unknown as Parameters<
-		typeof app.use
-	>[0]
+	const boardMiddleware = createPounceMiddleware({
+		routesDir: routesDir(),
+	}) as unknown as Parameters<typeof app.use>[0]
 	app.use(boardMiddleware)
 
 	app.all('/mcp', async (c) => {
 		const req = c.req.raw
 		const sessionId = req.headers.get('mcp-session-id') || undefined
 		try {
+			if (!sessionId && req.method === 'GET') {
+				return new Response(null, {
+					status: 405,
+					headers: { Allow: 'POST, DELETE' },
+				})
+			}
 			let transport = sessionId ? transports[sessionId] : undefined
 			let parsedBody: unknown
 			if (req.method === 'POST') parsedBody = await req.clone().json()
@@ -168,7 +177,10 @@ export async function startMarcDaemon(config: MarcConfig): Promise<StartedMarcDa
 				await server.connect(createdTransport)
 				transport = createdTransport
 			}
-			return await transport.handleRequest(req, parsedBody === undefined ? undefined : { parsedBody })
+			return await transport.handleRequest(
+				req,
+				parsedBody === undefined ? undefined : { parsedBody }
+			)
 		} catch (error) {
 			console.error('MCP error:', error)
 			return c.json(
@@ -239,8 +251,15 @@ export async function startMarcDaemon(config: MarcConfig): Promise<StartedMarcDa
 		clearDaemonState()
 		await new Promise<void>((resolveClose, reject) => {
 			server.close((error) => {
-				if (error) reject(error)
-				else resolveClose()
+				if (
+					error &&
+					(!(error instanceof Error) ||
+						!('code' in error) ||
+						error.code !== 'ERR_SERVER_NOT_RUNNING')
+				) {
+					reject(error)
+					return
+				} else resolveClose()
 			})
 		})
 	}

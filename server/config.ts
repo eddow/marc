@@ -67,7 +67,10 @@ export function resolveMarcConfig(overrides: Partial<MarcConfig> = {}): MarcConf
 		host: overrides.host ?? process.env.MARC_HOST ?? fileConfig.host ?? '127.0.0.1',
 		port: overrides.port ?? readEnvPort() ?? fileConfig.port ?? 3001,
 		dataDir: resolve(
-			overrides.dataDir ?? process.env.MARC_DATA ?? fileConfig.dataDir ?? resolve(homedir(), '.marc')
+			overrides.dataDir ??
+				process.env.MARC_DATA ??
+				fileConfig.dataDir ??
+				resolve(homedir(), '.marc')
 		),
 	}
 }

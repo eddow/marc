@@ -40,6 +40,22 @@ html, body
 		min-height: 0 !important
 		overflow: hidden !important
 
+// Fix: dv-render-overlay with position:absolute breaks flex layout when using defaultRenderer: 'always'
+// Make the overlay fill the parent while maintaining flex context
+.pounce-dv-item
+	position: relative !important
+	.dv-render-overlay
+		position: absolute !important
+		top: 0 !important
+		left: 0 !important
+		right: 0 !important
+		bottom: 0 !important
+		// Ensure the overlay's content respects flex layout
+		> *
+			height: 100% !important
+			display: flex !important
+			flex-direction: column !important
+
 // Dockview dark theme overrides for PicoCSS
 .dockview-theme-dark
 	--dv-group-view-background-color: var(--pico-background-color, #13171f)

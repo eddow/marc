@@ -87,7 +87,7 @@ const BriefingWidget = (_props: DockviewWidgetProps) => {
 		}
 	}
 
-	effect(() => {
+	effect`briefing:refresh`(() => {
 		refresh()
 	})
 

@@ -1,6 +1,6 @@
 import { componentStyle, type DockviewWidgetProps } from '@pounce'
 import { dock } from '../dock'
-import { dismissAgent, formatTimestamp, mcpAgents, settings } from '../state'
+import { dismissAgent, formatTimestamp, mcpAgents } from '../state'
 
 componentStyle.css`
 .agents-panel {
@@ -107,9 +107,7 @@ const AgentsWidget = (_props: DockviewWidgetProps) => {
 						{(agent) => (
 							<tr>
 								<td>
-									<span style={{ fontWeight: agent.name === settings.agent ? 'bold' : 'normal' }}>
-										{agent.name} {agent.name === settings.agent ? '(You)' : ''}
-									</span>
+									<span>{agent.name}</span>
 								</td>
 								<td>{renderStatus(agent.ts)}</td>
 								<td class="actions">
@@ -122,7 +120,7 @@ const AgentsWidget = (_props: DockviewWidgetProps) => {
 					</for>
 					<tr if={mcpAgents.length === 0}>
 						<td colSpan={3} class="empty-row">
-							No agents discovered yet.
+							No MCP agents connected.
 						</td>
 					</tr>
 				</tbody>

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdtempSync, mkdirSync } from 'node:fs'
+import { mkdirSync, mkdtempSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import test from 'node:test'
 import { setTimeout as sleep } from 'node:timers/promises'

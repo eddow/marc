@@ -270,10 +270,14 @@ function flushShellBuffer(
 ) {
 	if (!buffer) return ''
 	const normalized = buffer.replace(/\r/g, '')
-	const lines = normalized.split('\n')
-	const remainder = normalized.endsWith('\n') ? '' : (lines.pop() ?? '')
-	for (const line of lines) {
-		emitTransientMessage(from, target, line, type)
+	const lastNewlineIndex = normalized.lastIndexOf('\n')
+	if (lastNewlineIndex === -1) return normalized
+
+	const toEmit = normalized.slice(0, lastNewlineIndex)
+	const remainder = normalized.slice(lastNewlineIndex + 1)
+
+	if (toEmit) {
+		emitTransientMessage(from, target, toEmit, type)
 	}
 	return remainder
 }
@@ -468,11 +472,7 @@ export function getUsers(target: string): { name: string; ts?: number }[] {
 			.filter(([_, channels]) => channels.includes(target))
 			.map(([agent]) => agent)
 	)
-	const senders = new Set(
-		data.messages
-			.filter((m) => m.target === target)
-			.map((m) => m.from)
-	)
+	const senders = new Set(data.messages.filter((m) => m.target === target).map((m) => m.from))
 	const names = new Set([...joined, ...senders])
 	return Array.from(names).map((name) => ({
 		name,
@@ -480,21 +480,17 @@ export function getUsers(target: string): { name: string; ts?: number }[] {
 	}))
 }
 
-export function getAllAgents(): { name: string; ts?: number }[] {
-	return Object.keys(data.lastSeen).map((name) => ({
-		name,
-		ts: data.lastSeen[name],
-	}))
-}
-
-/** All known agents: merges persisted lastSeen with ephemeral MCP sessions */
+/** All MCP agents: merges persisted lastSeen with ephemeral MCP sessions */
 export function getMcpAgents(): { id: string; name: string; ts?: number }[] {
 	const mcpById = new Map(Array.from(agents.values()).map((a) => [a.name, a.id]))
-	return Object.keys(data.lastSeen).map((name) => ({
-		id: mcpById.get(name) ?? '',
-		name,
-		ts: data.lastSeen[name],
-	}))
+	// Only include agents that have an MCP session (agentId), not human users
+	return Object.keys(data.lastSeen)
+		.filter((name) => mcpById.has(name)) // Filter out human users
+		.map((name) => ({
+			id: mcpById.get(name) ?? '',
+			name,
+			ts: data.lastSeen[name],
+		}))
 }
 
 export function context(messageId: number, before = 5, after = 5): Message[] {

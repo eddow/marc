@@ -4,7 +4,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import type { MarcConfig } from './config.js'
 import { marcMcpUrl } from './config.js'
-import { ensureMarcDaemon, type CliInvocation } from './runtime.js'
+import { type CliInvocation, ensureMarcDaemon } from './runtime.js'
 import { forwardToolCall, marcServerInfo, registerMarcTools } from './tools.js'
 
 async function createRemoteClient(config: MarcConfig): Promise<{

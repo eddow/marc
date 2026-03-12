@@ -1,5 +1,5 @@
 import { componentStyle } from '@pounce/kit'
-import type { DockviewWidgetProps } from '@pounce/ui'
+import type { DockviewWidgetProps } from '@pounce/ui/dockview'
 import { effect, reactive } from 'mutts'
 import InputBar from '../components/input-bar'
 import MessageView from '../components/message'
@@ -7,9 +7,9 @@ import {
 	fetchTopic,
 	getShellChannel,
 	getUsers,
-	postMessage as sendMessage,
 	messagesForTarget,
 	restartShellChannel,
+	postMessage as sendMessage,
 	sendShellInput,
 	setTopicApi,
 	settings,
@@ -109,7 +109,6 @@ componentStyle.css`
 	overflow-y: scroll;
 	overflow-x: hidden;
 	padding: 0 0.5rem 0.5rem;
-	scroll-behavior: smooth;
 }
 .channel-empty {
 	text-align: center;
@@ -215,7 +214,7 @@ const ChannelWidget = (props: DockviewWidgetProps<ChannelParams>) => {
 		if (e.key === 'Escape') cancelTopicEdit()
 	}
 
-	effect(() => {
+	effect`channel:presence`(() => {
 		const t = target()
 		refreshUsers(t)
 		refreshTopic(t)
@@ -251,6 +250,23 @@ const ChannelWidget = (props: DockviewWidgetProps<ChannelParams>) => {
 	const sendToShell = async (text: string) => {
 		return sendShellInput(target(), text.endsWith('\n') ? text : `${text}\n`)
 	}
+
+	const displayMessages = reactive<{ msg: import('../state').Message; compact: boolean }[]>([])
+	effect`channel:displayMessages`(() => {
+		const list = messagesForTarget(target())
+		const mapped = list.map((msg, i) => {
+			const prev = list[i - 1]
+			const isShell = msg.type === 'shell-output' || msg.type === 'shell-error'
+			const compact = !!(
+				prev &&
+				isShell &&
+				prev.from === msg.from &&
+				(prev.type === 'shell-output' || prev.type === 'shell-error')
+			)
+			return { msg, compact }
+		})
+		displayMessages.splice(0, displayMessages.length, ...mapped)
+	})
 
 	return (
 		<div class="channel">
@@ -299,7 +315,9 @@ const ChannelWidget = (props: DockviewWidgetProps<ChannelParams>) => {
 			</div>
 			<div class="channel-body">
 				<div class="channel-messages" use:tail>
-					<for each={messagesForTarget(target())}>{(msg) => <MessageView message={msg} />}</for>
+					<for each={displayMessages}>
+						{({ msg, compact }) => <MessageView message={msg} compact={compact} />}
+					</for>
 					<p class="channel-empty" if={messagesForTarget(target()).length === 0}>
 						<em>No messages yet</em>
 					</p>
@@ -325,12 +343,16 @@ const ChannelWidget = (props: DockviewWidgetProps<ChannelParams>) => {
 			</div>
 			<InputBar
 				target={target()}
-				onSend={isShellTarget() ? sendToShell : async (text: string) => {
-					const t = target()
-					const type = text.startsWith('/me ') ? 'action' as const : 'text' as const
-					const body = type === 'action' ? text.slice(4) : text
-					return (await sendMessage(t, settings.agent, body, type)) !== null
-				}}
+				onSend={
+					isShellTarget()
+						? sendToShell
+						: async (text: string) => {
+								const t = target()
+								const type = text.startsWith('/me ') ? ('action' as const) : ('text' as const)
+								const body = type === 'action' ? text.slice(4) : text
+								return (await sendMessage(t, settings.agent, body, type)) !== null
+							}
+				}
 				placeholder={isShellTarget() ? `Send stdin to ${target()}...` : `Message ${target()}...`}
 				sendLabel={isShellTarget() ? 'Write' : 'Send'}
 				disabled={isShellTarget() && !shellChannel()?.isRunning}

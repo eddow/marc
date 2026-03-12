@@ -1,6 +1,6 @@
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 import { marcPackageVersion } from './package-info.js'
 
@@ -12,7 +12,12 @@ export interface MarcToolHandlers {
 	sync(args: { agentId?: string }): ToolResult
 	setName(args: { agentId: string; name: string }): ToolResult
 	join(args: { agentId: string; target: string }): ToolResult
-	post(args: { agentId: string; target: string; message: string; type?: 'text' | 'action' }): ToolResult
+	post(args: {
+		agentId: string
+		target: string
+		message: string
+		type?: 'text' | 'action'
+	}): ToolResult
 	part(args: { agentId: string; target: string }): ToolResult
 	users(args: { target: string }): ToolResult
 	errata(args: { messageId: number; newMessage: string }): ToolResult
@@ -71,7 +76,8 @@ export function registerMarcTools(server: McpServer, handlers: MarcToolHandlers)
 	server.registerTool(
 		'join',
 		{
-			description: 'Join a channel (starting with #). Returns { history: Message[], topic: Topic | null }.',
+			description:
+				'Join a channel (starting with #). Returns { history: Message[], topic: Topic | null }.',
 			inputSchema: { agentId: z.string(), target: z.string() },
 			annotations: { readOnlyHint: false, destructiveHint: false },
 		},

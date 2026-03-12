@@ -2,16 +2,8 @@ import assert from 'node:assert/strict'
 import { existsSync, mkdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import test from 'node:test'
-import {
-	getMarcPaths,
-	resolveMarcConfig,
-	writeMarcConfigFile,
-} from './config.js'
-import {
-	clearDaemonState,
-	readDaemonState,
-	writeDaemonState,
-} from './runtime.js'
+import { getMarcPaths, resolveMarcConfig, writeMarcConfigFile } from './config.js'
+import { clearDaemonState, readDaemonState, writeDaemonState } from './runtime.js'
 
 const sandboxRoot = join(process.cwd(), 'sandbox', 'tests-config-runtime')
 

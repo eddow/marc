@@ -2,7 +2,7 @@
 import { basename, dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { resolveMarcConfig } from './config.js'
-import { type CliInvocation } from './runtime.js'
+import type { CliInvocation } from './runtime.js'
 import { startMarcStdioBridge } from './stdio.js'
 
 function currentCliInvocation(): CliInvocation {

@@ -91,19 +91,13 @@ export async function waitForMarcHealthy(
 		if (await isMarcHealthy(config)) return
 		await new Promise((resolve) => setTimeout(resolve, intervalMs))
 	}
-	throw new Error(`mARC daemon did not become healthy at ${marcHttpUrl(config)} within ${timeoutMs}ms`)
+	throw new Error(
+		`mARC daemon did not become healthy at ${marcHttpUrl(config)} within ${timeoutMs}ms`
+	)
 }
 
 function serveArgs(config: MarcConfig): string[] {
-	return [
-		'serve',
-		'--host',
-		config.host,
-		'--port',
-		String(config.port),
-		'--data',
-		config.dataDir,
-	]
+	return ['serve', '--host', config.host, '--port', String(config.port), '--data', config.dataDir]
 }
 
 export function spawnMarcDaemon(invocation: CliInvocation, config: MarcConfig): number | undefined {

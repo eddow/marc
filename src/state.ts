@@ -240,7 +240,7 @@ export async function getUsers(target: string): Promise<{ name: string; ts?: num
 	}
 }
 
-export async function getAllAgents(): Promise<McpAgent[]> {
+export async function getMcpAgents(): Promise<McpAgent[]> {
 	try {
 		const res = await fetch('/api/agents')
 		return await res.json()
@@ -253,7 +253,7 @@ export async function preloadInitialData(): Promise<void> {
 	console.log('[preloadInitialData] starting...')
 	const [_, agents, shells] = await Promise.all([
 		fetchMessages(),
-		getAllAgents(),
+		getMcpAgents(),
 		fetchShellChannels(),
 	])
 	console.log('[preloadInitialData] fetched all:', { agents: agents.length, shells: shells.length })
@@ -342,7 +342,7 @@ export async function createShellChannelApi(
 
 export async function deleteShellChannelApi(name: string): Promise<boolean> {
 	try {
-		await api(`/api/shell-channels/${encodeURIComponent(name)}`).del()
+		await api(`/api/shell-channels/${encodeURIComponent(name)}`).delete()
 		return true
 	} catch {
 		return false
