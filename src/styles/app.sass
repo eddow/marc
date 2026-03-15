@@ -29,12 +29,12 @@ html, body
 	flex-shrink: 0
 
 // Fix: dv-content-container is a flex-grow child but not a flex container,
-// so pounce-dv-item's height:100% cannot resolve (no definite parent height).
+// so sursaut-dv-item's height:100% cannot resolve (no definite parent height).
 // Making it a flex column gives its children a definite containing block.
 .dv-content-container
 	display: flex !important
 	flex-direction: column !important
-	& > .pounce-dv-item
+	& > .sursaut-dv-item
 		flex: 1 1 0 !important
 		height: auto !important
 		min-height: 0 !important
@@ -42,7 +42,7 @@ html, body
 
 // Fix: dv-render-overlay with position:absolute breaks flex layout when using defaultRenderer: 'always'
 // Make the overlay fill the parent while maintaining flex context
-.pounce-dv-item
+.sursaut-dv-item
 	position: relative !important
 	.dv-render-overlay
 		position: absolute !important
@@ -72,7 +72,7 @@ html, body
 	--dv-inactivegroup-hiddenpanel-tab-color: var(--pico-muted-color, #666)
 
 // Inline input for agent name
-.pounce-input-inline
+.sursaut-input-inline
 	background: transparent
 	border: none
 	border-bottom: 1px solid var(--pico-muted-border-color, #444)

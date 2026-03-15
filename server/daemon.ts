@@ -9,7 +9,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js'
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js'
 import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js'
-import { createPounceMiddleware } from 'board/server'
+import { createSursautMiddleware } from 'board/server'
 import { Hono } from 'hono'
 import type { MarcConfig } from './config.js'
 import { marcHttpUrl } from './config.js'
@@ -134,7 +134,7 @@ export async function startMarcDaemon(config: MarcConfig): Promise<StartedMarcDa
 		})
 	)
 	app.use('/*', serveStatic({ root: staticRoot() }))
-	const boardMiddleware = createPounceMiddleware({
+	const boardMiddleware = createSursautMiddleware({
 		routesDir: routesDir(),
 	}) as unknown as Parameters<typeof app.use>[0]
 	app.use(boardMiddleware)

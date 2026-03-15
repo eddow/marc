@@ -1,5 +1,5 @@
-import { componentStyle } from '@pounce/kit'
-import type { DockviewWidgetProps } from '@pounce/ui/dockview'
+import { componentStyle } from '@sursaut/kit'
+import type { DockviewWidgetProps } from '@sursaut/ui/dockview'
 import { effect, reactive } from 'mutts'
 import InputBar from '../components/input-bar'
 import MessageView from '../components/message'

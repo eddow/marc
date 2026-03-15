@@ -1,7 +1,7 @@
 # mARC — LLM Cheat Sheet
 
 ## Overview
-MCP server over HTTP for agent-to-agent messaging, with a Pounce browser dashboard.
+MCP server over HTTP for agent-to-agent messaging, with a Sursaut browser dashboard.
 Messages are structured objects `{ id, from, target, text, ts, modified?, type? }` stored in-RAM with JSON file persistence (`sandbox/store.json`). Buffer-size eviction (max 500 messages).
 
 ---
@@ -40,11 +40,11 @@ These are completely separate and must never be confused.
 ---
 
 ## Architecture
-- **Server** (`server/daemon.ts`, `server/index.ts`): Hono daemon on port 3001 by default. REST routes via `@pounce/board` file-based routing (`server/routes/`). MCP Streamable HTTP at `/mcp`.
+- **Server** (`server/daemon.ts`, `server/index.ts`): Hono daemon on port 3001 by default. REST routes via `@sursaut/board` file-based routing (`server/routes/`). MCP Streamable HTTP at `/mcp`.
 - **CLI split** (`server/cli.ts`): `marc serve` runs the daemon, `marc stdio` ensures the daemon is running then bridges stdio MCP to the daemon's HTTP MCP endpoint, `marc configure windsurf` persists local config then uses `soup-chop` to register the stdio entrypoint with Windsurf.
 - **Store** (`server/store.ts`): In-memory store with JSON persistence. `storeEvents` EventEmitter drives SSE push.
-- **Client**: Pounce app using `@pounce/ui`'s `Dockview` for IDE-like panel layout.
-- **Build**: Vite 7 + `@pounce/core/plugin` (babel JSX transform).
+- **Client**: Sursaut app using `@sursaut/ui`'s `Dockview` for IDE-like panel layout.
+- **Build**: Vite 7 + `@sursaut/core/plugin` (babel JSX transform).
 - **Styling**: PicoCSS dark theme + dockview-theme-dark overrides.
 
 ## Dev Workflow
@@ -139,7 +139,7 @@ The human operator's interface. All use plain names (no agentId).
 
 ---
 
-## Pounce Conventions
+## Sursaut Conventions
 - No file extensions in imports.
 - No destructuring props — access `props.xxx` directly. **Never read `props.xxx` bare in the component body** — it captures once and kills reactivity. Inline in JSX or wrap in a getter.
 - No `.map()` for lists — use `<for each={}>`.
@@ -153,25 +153,25 @@ The human operator's interface. All use plain names (no agentId).
 
 ## Display Bug Root Causes (2026-03-08)
 Three compounding issues caused messages to never display:
-1. **`@pounce/kit` aliased to node entry** — `vite.config.ts` had `@pounce/kit` → `src/index.ts` (node, no `api` export). Causes silent module crash, empty `#app`. Must point to `src/dom/index.ts`.
+1. **`@sursaut/kit` aliased to node entry** — `vite.config.ts` had `@sursaut/kit` → `src/index.ts` (node, no `api` export). Causes silent module crash, empty `#app`. Must point to `src/dom/index.ts`.
 2. **`api().stream()` has a stream guard** — `callStreamGuardHook()` silently returns a noop under certain conditions. Replaced with raw `EventSource`.
 3. **Initial load happened too late** — rendering began from empty arrays, and relying on post-mount async population was fragile. Even when REST returned the correct 7 messages, the first visible render could still show 0. The stable fix is to preload initial dashboard data before mounting the UI.
 
 **Final working approach**: `main.tsx` calls `await preloadInitialData()` before `latch()`. The UI then renders directly from the shared global arrays again (`messages`, `messagesForTarget(target)`), so the first render already has the correct data. Live updates can happen afterwards, but initial visibility must not depend on post-mount catch-up.
 
 - Layout persisted to `localStorage` key `marc:layout`. Clear to reset.
-- `use:tail` (from `@pounce/ui`) auto-scrolls to bottom on content change, disengages on user scroll-up.
+- `use:tail` (from `@sursaut/ui`) auto-scrolls to bottom on content change, disengages on user scroll-up.
 - Dockview widget roots need explicit height: use `height: 100%; display: flex; flex-direction: column; overflow: hidden` — `height: 100%` chains don't constrain children on their own.
-- `componentStyle.css` not `.sass` — marc has no pounce vite plugin, SASS syntax won't compile.
+- `componentStyle.css` not `.sass` — marc has no sursaut vite plugin, SASS syntax won't compile.
 - In Hono Node mode, `/mcp` should use `WebStandardStreamableHTTPServerTransport` with `c.req.raw`. Passing Hono's `c.res` into the Node `StreamableHTTPServerTransport` breaks with `outgoing.writeHead is not a function` because `c.res` is a Fetch `Response`, not a Node `ServerResponse`. Legacy SSE endpoints must use `c.env.incoming` / `c.env.outgoing`.
 
 ## Gotchas
-- Uses `DockviewRouter` from `@pounce/ui` with routes defined in `src/panel-routes.tsx`. Layout is persisted through the bound `layout` state.
+- Uses `DockviewRouter` from `@sursaut/ui` with routes defined in `src/panel-routes.tsx`. Layout is persisted through the bound `layout` state.
 - Vite proxy covers `/api` only. MCP runs directly on `:3001/mcp`.
-- `use:tail` (from `@pounce/ui`) auto-scrolls to bottom on content change, disengages on user scroll-up.
+- `use:tail` (from `@sursaut/ui`) auto-scrolls to bottom on content change, disengages on user scroll-up.
 - Dockview widget roots need explicit height: use `height: 100%; display: flex; flex-direction: column; overflow: hidden` — `height: 100%` chains don't constrain children on their own.
-- `componentStyle.css` not `.sass` — marc has no pounce vite plugin, SASS syntax won't compile.
+- `componentStyle.css` not `.sass` — marc has no sursaut vite plugin, SASS syntax won't compile.
 - In Hono Node mode, `/mcp` should use `WebStandardStreamableHTTPServerTransport` with `c.req.raw`. Passing Hono's `c.res` into the Node `StreamableHTTPServerTransport` breaks with `outgoing.writeHead is not a function` because `c.res` is a Fetch `Response`, not a Node `ServerResponse`. Legacy SSE endpoints must use `c.env.incoming` / `c.env.outgoing`.
 
 ## Dependencies
-All pounce packages `link:` to local workspace. `dockview-core` direct dep (peer of `@pounce/ui`). MCP SDK: `@modelcontextprotocol/sdk`. Babel plugins as explicit devDeps (pnpm strict isolation).
+All sursaut packages `link:` to local workspace. `dockview-core` direct dep (peer of `@sursaut/ui`). MCP SDK: `@modelcontextprotocol/sdk`. Babel plugins as explicit devDeps (pnpm strict isolation).

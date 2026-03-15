@@ -1,4 +1,4 @@
-import { expose, type PounceRequest } from 'board'
+import { expose, type SursautRequest } from 'board'
 import { createShellChannel, listShellChannels } from '../../../store.js'
 
 export default expose({
@@ -6,7 +6,7 @@ export default expose({
 		return listShellChannels()
 	},
 
-	async post(req: PounceRequest) {
+	async post(req: SursautRequest) {
 		const body = await req.raw.json()
 		const { name, cwd, command, user } = body
 		if (!name || !cwd || !command || !user) {

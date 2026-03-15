@@ -1,4 +1,4 @@
-import type { bindDialog } from '@pounce'
+import type { bindDialog } from '@sursaut'
 import type { DockviewApi } from 'dockview-core'
 import { reactive } from 'mutts'
 

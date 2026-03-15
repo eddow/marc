@@ -20,12 +20,12 @@ importers:
       '@picocss/pico':
         specifier: ^2
         version: 2.1.1
-      '@pounce/kit':
-        specifier: link:../pounce/packages/kit
-        version: link:../pounce/packages/kit
+      '@sursaut/kit':
+        specifier: link:../sursaut/packages/kit
+        version: link:../sursaut/packages/kit
       board:
-        specifier: link:../pounce/packages/board
-        version: link:../pounce/packages/board
+        specifier: link:../sursaut/packages/board
+        version: link:../sursaut/packages/board
       dockview-core:
         specifier: ^4.13.1
         version: 4.13.1
@@ -60,15 +60,15 @@ importers:
       '@biomejs/biome':
         specifier: ^2.3.13
         version: 2.4.4
-      '@pounce/adapter-pico':
-        specifier: link:../pounce/packages/adapters/pico
-        version: link:../pounce/packages/adapters/pico
-      '@pounce/core':
-        specifier: link:../pounce/packages/core
-        version: link:../pounce/packages/core
-      '@pounce/ui':
-        specifier: link:../pounce/packages/ui
-        version: link:../pounce/packages/ui
+      '@sursaut/adapter-pico':
+        specifier: link:../sursaut/packages/adapters/pico
+        version: link:../sursaut/packages/adapters/pico
+      '@sursaut/core':
+        specifier: link:../sursaut/packages/core
+        version: link:../sursaut/packages/core
+      '@sursaut/ui':
+        specifier: link:../sursaut/packages/ui
+        version: link:../sursaut/packages/ui
       '@types/babel__core':
         specifier: ^7.20.5
         version: 7.20.5

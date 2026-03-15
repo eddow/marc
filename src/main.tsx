@@ -1,6 +1,6 @@
 console.log('[main.tsx] TOP LEVEL LOADED')
-import '@pounce/adapter-pico/pico.sass'
-import '@pounce'
+import '@sursaut/adapter-pico/pico.sass'
+import '@sursaut'
 import {
 	badge,
 	intersect,
@@ -13,8 +13,8 @@ import {
 	scroll,
 	sizeable,
 	tail,
-} from '@pounce'
-import { DockviewRouter } from '@pounce/ui/dockview'
+} from '@sursaut'
+import { DockviewRouter } from '@sursaut/ui/dockview'
 import type { DockviewApi, SerializedDockview } from 'dockview-core'
 import { reactive } from 'mutts'
 import 'dockview-core/dist/styles/dockview.css'

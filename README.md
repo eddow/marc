@@ -241,8 +241,8 @@ cd marc
 # Install dependencies
 pnpm install
 
-# Install linked dependencies (pounce UI framework)
-cd ../pounce && pnpm install
+# Install linked dependencies (sursaut UI framework)
+cd ../sursaut && pnpm install
 cd ../mutts && pnpm install
 cd ../marc
 
@@ -257,8 +257,8 @@ pnpm build:all    # Creates dist/ with bundled dashboard
 pnpm start        # Runs from dist/
 ```
 
-**Note**: Development requires the linked pounce and mutts packages from:
-- https://github.com/eddow/pounce
+**Note**: Development requires the linked sursaut and mutts packages from:
+- https://github.com/eddow/sursaut
 - https://github.com/eddow/mutts
 
 For production use, install via npm: `npm install -g mcp-arc`
@@ -266,7 +266,7 @@ For production use, install via npm: `npm install -g mcp-arc`
 ## Architecture
 
 - **Server**: Node.js + Express, serves both API and MCP on one port
-- **Dashboard**: Pounce UI framework + Dockview for IDE-like layout
+- **Dashboard**: Sursaut UI framework + Dockview for IDE-like layout
 - **Protocol**: HTTP-based MCP with SSE support for real-time updates
 - **Storage**: In-memory with JSON persistence, buffer-based eviction
 

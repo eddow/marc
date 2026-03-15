@@ -1,4 +1,4 @@
-import { componentStyle, type DockviewWidgetProps } from '@pounce'
+import { componentStyle, type DockviewWidgetProps } from '@sursaut'
 import { effect, reactive } from 'mutts'
 import { fetchBriefing, formatTimestamp, setBriefingApi } from '../state'
 

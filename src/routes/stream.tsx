@@ -1,4 +1,4 @@
-import { componentStyle, type DockviewWidgetProps } from '@pounce'
+import { componentStyle, type DockviewWidgetProps } from '@sursaut'
 import { effect, reactive } from 'mutts'
 import MessageView from '../components/message'
 import { type Message, messages } from '../state'

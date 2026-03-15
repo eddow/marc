@@ -1,4 +1,4 @@
-import { client, componentStyle } from '@pounce/kit'
+import { client, componentStyle } from '@sursaut/kit'
 import { reactive } from 'mutts'
 import { dock } from '../dock'
 import { channelPanelUrl } from '../panel-routes'

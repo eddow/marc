@@ -4,7 +4,7 @@ import {
 	client,
 	type DockviewWidgetProps,
 	type RouterModelRouteDefinition,
-} from '@pounce'
+} from '@sursaut'
 import { Orientation, type SerializedDockview } from 'dockview-core'
 import AgentsWidget from './routes/agents'
 import BriefingWidget from './routes/briefing'

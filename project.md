@@ -1,6 +1,6 @@
 # red-hist — Agent Chat Dashboard
 
-The first real **pounce** application. A browser-based dashboard for reading and writing to the Redis agent communication channels.
+The first real **sursaut** application. A browser-based dashboard for reading and writing to the Redis agent communication channels.
 
 ## Purpose
 
@@ -19,13 +19,13 @@ A tiny **Fastify** server (~50 lines) that:
 
 Uses `ioredis` to talk to `localhost:6379`.
 
-### Client (pounce app)
+### Client (sursaut app)
 
-A **pounce** application using:
-- `@pounce/core` — JSX, reactivity, `bindApp()`
-- `@pounce/kit` — `Router`, `<A>`, `client`, `css`/`sass`
-- `@pounce/ui` — UI components, `DisplayProvider`, `ThemeToggle`
-- `@pounce/adapter-pico` + `@picocss/pico` — PicoCSS for styling (lightweight, looks good out of the box)
+A **sursaut** application using:
+- `@sursaut/core` — JSX, reactivity, `bindApp()`
+- `@sursaut/kit` — `Router`, `<A>`, `client`, `css`/`sass`
+- `@sursaut/ui` — UI components, `DisplayProvider`, `ThemeToggle`
+- `@sursaut/adapter-pico` + `@picocss/pico` — PicoCSS for styling (lightweight, looks good out of the box)
 - `mutts` — reactive state
 
 #### Views
@@ -50,7 +50,7 @@ A **pounce** application using:
 #### Reactive Data Flow
 
 ```
-Redis ←→ Fastify API ←→ fetch/SSE ←→ mutts reactive state ←→ pounce components
+Redis ←→ Fastify API ←→ fetch/SSE ←→ mutts reactive state ←→ sursaut components
 ```
 
 - `channels` — `reactive({})` map of channel name → content string
@@ -62,8 +62,8 @@ Redis ←→ Fastify API ←→ fetch/SSE ←→ mutts reactive state ←→ pou
 
 See `package.json` for the full list. Key points:
 
-- All pounce packages use `link:` to local workspace (dogfooding dist output)
-- Build plugin: `@pounce/core/plugin` (Babel transform for JSX reactivity) — no separate `@pounce/plugin`
+- All sursaut packages use `link:` to local workspace (dogfooding dist output)
+- Build plugin: `@sursaut/core/plugin` (Babel transform for JSX reactivity) — no separate `@sursaut/plugin`
 - Babel deps as devDeps (required by the core plugin at build time)
 - `ioredis` for the Fastify server's Redis connection
 
@@ -75,7 +75,7 @@ red-hist/
 ├── package.json
 ├── tsconfig.json
 ├── LLM.md              # LLM cheat-sheet
-├── vite.config.ts      # Vite + @pounce/core/plugin + proxy /api → fastify
+├── vite.config.ts      # Vite + @sursaut/core/plugin + proxy /api → fastify
 ├── server/
 │   └── index.ts        # Fastify server (Redis ↔ HTTP bridge)
 ├── src/
@@ -111,7 +111,7 @@ Or combine via Vite's `server.proxy` config pointing `/api` → `http://localhos
 
 ### Key Decisions
 
-1. **Link dependencies** — Use `link:` to consume pounce packages from their local dist. This dogfoods the real published package experience.
+1. **Link dependencies** — Use `link:` to consume sursaut packages from their local dist. This dogfoods the real published package experience.
 2. **PicoCSS** — Minimal CSS framework, already has an adapter. Perfect for a utility app.
 3. **SSE for live updates** — Simpler than WebSockets, sufficient for polling Redis string keys.
 4. **`channel:stream` is read-only** — The UI enforces append-only semantics by not providing a write input for the stream channel.
@@ -123,4 +123,4 @@ Or combine via Vite's `server.proxy` config pointing `/api` → `http://localhos
 - [ ] Channel archiving — button to snapshot a channel to a timestamped key
 - [ ] Agent activity timeline — visual timeline of stream events
 - [ ] Syntax highlighting for code blocks in messages
-- [ ] Dark mode toggle — `DisplayProvider` + `ThemeToggle` from `@pounce/ui` are ready, just need wiring
+- [ ] Dark mode toggle — `DisplayProvider` + `ThemeToggle` from `@sursaut/ui` are ready, just need wiring

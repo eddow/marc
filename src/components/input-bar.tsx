@@ -1,4 +1,4 @@
-import { componentStyle } from '@pounce'
+import { componentStyle } from '@sursaut'
 import { reactive } from 'mutts'
 import { postMessage, settings } from '../state'
 

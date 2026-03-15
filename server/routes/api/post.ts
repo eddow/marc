@@ -1,8 +1,8 @@
-import { expose, type PounceRequest } from 'board'
+import { expose, type SursautRequest } from 'board'
 import { post as storePost } from '../../store.js'
 
 export default expose({
-	async post(req: PounceRequest) {
+	async post(req: SursautRequest) {
 		const body = await req.raw.json()
 		const { name, target, message, type } = body
 		if (!name || !target || !message)

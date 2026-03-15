@@ -18,11 +18,11 @@
 		"noUnusedParameters": false,
 		"types": [
 			"node",
-			"@pounce/core"
+			"@sursaut/core"
 		],
 		"paths": {
-			"@pounce": [
-				"./.generated-types/@pounce.d.ts"
+			"@sursaut": [
+				"./.generated-types/@sursaut.d.ts"
 			],
 			"mutts": [
 				"../mutts/dist/index.d.ts"
@@ -31,20 +31,20 @@
 				"../mutts/dist/src/*"
 			],
 			"board": [
-				"../pounce/packages/board/src/index.ts"
+				"../sursaut/packages/board/src/index.ts"
 			],
 			"board/server": [
-				"../pounce/packages/board/src/server/index.ts"
+				"../sursaut/packages/board/src/server/index.ts"
 			],
 			"board/*": [
-				"../pounce/packages/board/src/*"
+				"../sursaut/packages/board/src/*"
 			]
 		}
 	},
 	"include": [
 		"src/**/*.ts",
 		"src/**/*.tsx",
-		".generated-types/@pounce.d.ts"
+		".generated-types/@sursaut.d.ts"
 	],
 	"exclude": []
 }

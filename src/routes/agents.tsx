@@ -1,4 +1,4 @@
-import { componentStyle, type DockviewWidgetProps } from '@pounce'
+import { componentStyle, type DockviewWidgetProps } from '@sursaut'
 import { dock } from '../dock'
 import { dismissAgent, formatTimestamp, mcpAgents } from '../state'
 

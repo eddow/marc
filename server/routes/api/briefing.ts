@@ -1,4 +1,4 @@
-import { expose, type PounceRequest } from 'board'
+import { expose, type SursautRequest } from 'board'
 import { getBriefing, setBriefing } from '../../store.js'
 
 export default expose({
@@ -6,7 +6,7 @@ export default expose({
 		return getBriefing()
 	},
 
-	async post(req: PounceRequest) {
+	async post(req: SursautRequest) {
 		const body = await req.raw.json()
 		const { text } = body
 		if (text === undefined) return { status: 400, error: 'Missing text' }

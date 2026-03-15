@@ -1,4 +1,4 @@
-import { componentStyle } from '@pounce'
+import { componentStyle } from '@sursaut'
 import { marked } from 'marked'
 import { effect, reactive } from 'mutts'
 import type { Message as Msg } from '../state'

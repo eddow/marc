@@ -1,8 +1,8 @@
-import { expose, type PounceRequest } from 'board'
+import { expose, type SursautRequest } from 'board'
 import { setTopic } from '../../../store.js'
 
 export default expose({
-	async post(req: PounceRequest) {
+	async post(req: SursautRequest) {
 		const body = await req.raw.json()
 		const { name, target, topic } = body
 		if (!target || topic === undefined) return { status: 400, error: 'Missing target or topic' }

@@ -1,5 +1,5 @@
-import { pounceOptions, prodPreset as pounceProdPreset } from '@pounce/core'
-import { api } from '@pounce/kit'
+import { sursautOptions, prodPreset as sursautProdPreset } from '@sursaut/core'
+import { api } from '@sursaut/kit'
 import { effect, isReactive, prodPreset as muttsProdPreset, reactive, reactiveOptions } from 'mutts'
 
 export interface Message {
@@ -65,7 +65,7 @@ if (typeof window !== 'undefined') {
 
 // Apply production presets for performance as requested
 Object.assign(reactiveOptions, muttsProdPreset)
-Object.assign(pounceOptions, pounceProdPreset)
+Object.assign(sursautOptions, sursautProdPreset)
 
 // Derived: unique target names from messages
 export function targetNames(): string[] {

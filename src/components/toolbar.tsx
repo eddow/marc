@@ -1,4 +1,4 @@
-import { client, componentStyle } from '@pounce'
+import { client, componentStyle } from '@sursaut'
 import { channelPanelUrl, panelPaths } from '../panel-routes'
 import { channelNames, setAgentName, settings, shellChannelNames } from '../state'
 
@@ -95,7 +95,7 @@ const Toolbar = () => {
 				👤{' '}
 				<input
 					type="text"
-					class="pounce-input-inline"
+					class="sursaut-input-inline"
 					value={settings.agent}
 					onBlur={(e: FocusEvent) => setAgentName((e.target as HTMLInputElement).value)}
 				/>
