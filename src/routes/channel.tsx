@@ -5,6 +5,7 @@ import InputBar from '../components/input-bar'
 import MessageView from '../components/message'
 import {
 	fetchTopic,
+	formatTimestamp,
 	getShellChannel,
 	getUsers,
 	messagesForTarget,
@@ -227,10 +228,15 @@ const ChannelWidget = (props: DockviewWidgetProps<ChannelParams>) => {
 	const renderTimestamp = (ts?: number) => {
 		if (!ts) return ''
 		const diff = Date.now() - ts
-		if (diff < 10000) return <span class="agent-online">[online]</span>
-		const d = new Date(ts)
-		const timeStr = `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}:${d.getSeconds().toString().padStart(2, '0')}`
-		return <span class="agent-time">{timeStr}</span>
+		if (diff < 10000) {
+			return (
+				<span>
+					<span class="agent-online">[online]</span>{' '}
+					<span class="agent-time">{formatTimestamp(ts)}</span>
+				</span>
+			)
+		}
+		return <span class="agent-time">{formatTimestamp(ts)}</span>
 	}
 
 	const shellStatus = () => {

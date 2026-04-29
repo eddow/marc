@@ -280,7 +280,7 @@ export function subscribeAll(): () => void {
 		} else if (ev.type === 'message') {
 			const idx = messages.findIndex((m) => m.id === ev.data.id)
 			if (idx >= 0) messages.splice(idx, 1, ev.data)
-			else messages.push(ev.data)
+			else messages.splice(messages.length, 0, ev.data)
 		} else if (ev.type === 'agents') {
 			mcpAgents.splice(0, mcpAgents.length, ...ev.data)
 		} else if (ev.type === 'shellChannels') {

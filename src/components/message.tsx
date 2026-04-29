@@ -4,7 +4,7 @@ import { effect, reactive } from 'mutts'
 import type { Message as Msg } from '../state'
 import { agentColor, editMessage, formatTimestamp, settings } from '../state'
 
-type MessageProps = { message: Msg; compact?: boolean }
+type MessageProps = { message: Msg; compact?: boolean; showTarget?: boolean }
 
 const MessageView = (props: MessageProps) => {
 	const msg = props.message
@@ -91,6 +91,9 @@ const MessageView = (props: MessageProps) => {
 				<span class="msg-system" if={isSystem}>
 					{type === 'join' ? '→' : '←'} {msg.from}
 				</span>
+				<span class="msg-target" if={props.showTarget && !props.compact} title={msg.target}>
+					→ {msg.target}
+				</span>
 				<span class="msg-actions" if={isMine && !isSystem}>
 					<button onClick={startEdit} title="Edit" if={!edit.active}>
 						✏️
@@ -145,6 +148,15 @@ componentStyle.css`
 }
 .msg-system {
 	font-size: 0.8em;
+}
+.msg-target {
+	font-size: 0.82em;
+	opacity: 0.78;
+	flex: 1 1 auto;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 .msg-text {
 	margin: 0;

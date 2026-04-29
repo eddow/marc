@@ -22,6 +22,7 @@ These are completely separate and must never be confused.
 - Any number of MCP-connected agents. They talk to the server via the **MCP protocol** at `/mcp`.
 - **Must call `sync()` first** (no agentId argument) → receives a unique ephemeral `agentId` (5-char lowercase string).
 - `agentId` is **ephemeral** (in-memory only, not persisted). Lost on server restart.
+- Channel membership is also runtime-only: daemon init clears persisted `joined` entries so old MCP agents do not reappear as channel ghosts.
 - Default name: `anon-<agentId>`. Can rename with `setName(agentId, name)`.
 - Must **`join`** a channel to receive its messages via subsequent `sync()` calls.
 - Tracked in `store.ts` in the **`agents: Map<string, Agent>`** (keyed by agentId).
@@ -41,10 +42,11 @@ These are completely separate and must never be confused.
 
 ## Architecture
 - **Server** (`server/daemon.ts`, `server/index.ts`): Hono daemon on port 3001 by default. REST routes via `@sursaut/board` file-based routing (`server/routes/`). MCP Streamable HTTP at `/mcp`.
+- **Unified port routing**: In `daemon.ts`, register `/healthz`, all `/api/*` handlers, `/mcp`, `/sse`, `/message` *before* `serveStatic` on `/*`. Then HTML navigations (`Accept` includes `text/html`, no stale file extension like `.js`) get `index.html` for client routes (`/stream`, etc.); other misses → `404`. Never put `serveStatic` above API/MCP or static middleware can win the match order.
 - **CLI split** (`server/cli.ts`): `marc serve` runs the daemon, `marc stdio` ensures the daemon is running then bridges stdio MCP to the daemon's HTTP MCP endpoint, `marc configure windsurf` persists local config then uses `soup-chop` to register the stdio entrypoint with Windsurf.
 - **Store** (`server/store.ts`): In-memory store with JSON persistence. `storeEvents` EventEmitter drives SSE push.
 - **Client**: Sursaut app using `@sursaut/ui`'s `Dockview` for IDE-like panel layout.
-- **Build**: Vite 7 + `@sursaut/core/plugin` (babel JSX transform).
+- **Build**: Vite 8 + `@sursaut/core/plugin` (babel JSX transform). `vite.config.ts` uses Rolldown `output.keepNames: true` so named callbacks stay visible at runtime for mutts/Sursaut debugging.
 - **Styling**: PicoCSS dark theme + dockview-theme-dark overrides.
 
 ## Dev Workflow
@@ -131,7 +133,7 @@ The human operator's interface. All use plain names (no agentId).
 - `src/main.tsx` — Entry point: global `subscribeAll()` with HMR cleanup, Dockview layout, directives in rootEnv
 - `src/routes/channel.tsx` — Chat panel: message list with `use:tail`, topic bar, users sidebar, InputBar
 - `src/routes/agents.tsx` — Agents panel: reads `mcpAgents` reactive array directly (no polling)
-- `src/routes/stream.tsx` — All-messages panel with agent filter
+- `src/routes/stream.tsx` — All-messages panel with agent filter; `streamPanel` / `streamDisplay` are **module-level** `reactive` (widget body re-runs when `messages` updates — in-component `reactive` would reset filters and “Newest first”). Ordering helper: `src/stream-order.ts`
 - `src/routes/briefing.tsx` — Briefing editor (Ctrl+S to save)
 - `src/components/toolbar.tsx` — Header: channel picker, panel buttons, operator name input
 - `src/components/input-bar.tsx` — Message input: `/me ` prefix → `action` type; posts as `settings.agent`
@@ -167,6 +169,8 @@ Three compounding issues caused messages to never display:
 
 ## Gotchas
 - Uses `DockviewRouter` from `@sursaut/ui` with routes defined in `src/panel-routes.tsx`. Layout is persisted through the bound `layout` state.
+- `startMarcDaemon()` currently registers dashboard REST routes manually in `server/daemon.ts`; adding a file under `server/routes/api/` is not enough unless board middleware routing is restored.
+- **Stale `mcp-session-id` on `initialize`:** After a daemon restart, HTTP MCP clients may POST `initialize` with the previous session header. The `/mcp` bootstrap must allow that (detect `initialize` in body only); requiring `!sessionId` caused `Invalid session` (-32000) on reconnect.
 - Vite proxy covers `/api` only. MCP runs directly on `:3001/mcp`.
 - `use:tail` (from `@sursaut/ui`) auto-scrolls to bottom on content change, disengages on user scroll-up.
 - Dockview widget roots need explicit height: use `height: 100%; display: flex; flex-direction: column; overflow: hidden` — `height: 100%` chains don't constrain children on their own.

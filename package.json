@@ -13,12 +13,16 @@
 		"dev": "vite",
 		"server": "node --import tsx server/cli.ts serve",
 		"proxy": "node --import tsx server/cli.ts stdio",
+		"restart-daemon": "node --import tsx server/cli.ts restart-daemon",
 		"build": "vite build",
 		"build:server": "tsc -p server/tsconfig.json",
 		"build:all": "npm run build && npm run build:server",
+		"retry": "pnpm run build:all && pnpm run restart-daemon",
 		"preview": "vite preview",
+		"prestart": "pnpm run build:server",
 		"start": "node dist/cli.js serve",
 		"test:server": "node --import tsx --test --test-concurrency=1 server/*.test.ts",
+		"test:client": "node --import tsx --test src/stream-order.test.ts",
 		"biome": "biome check src/ server/",
 		"biome:fix": "biome check --write src/ server/",
 		"biome:unsafe": "biome check --write --unsafe src/ server/"
@@ -54,7 +58,7 @@
 		"sass": "^1.93",
 		"tsx": "^4",
 		"typescript": "^5.9",
-		"vite": "^7",
+		"vite": "^8.0.10",
 		"vite-plugin-dts": "^4.5.3"
 	},
 	"bin": {

@@ -6,22 +6,86 @@ import { setTimeout as sleep } from 'node:timers/promises'
 import {
 	allMessages,
 	createShellChannel,
+	getAllChannels,
 	getShellChannel,
+	getUsers,
 	init,
+	join as joinChannel,
 	listShellChannels,
+	post,
 	sendShellInput,
+	setAgentName,
 	setDataDir,
 	startShellChannel,
 	stopShellChannel,
 	storeEvents,
+	sync,
+	welcome,
 } from './store.js'
 
-test('shell channels persist configuration and stream transient output', async () => {
+function freshStore(prefix: string): void {
 	const sandboxRoot = resolve(process.cwd(), 'sandbox', 'tests-store')
 	mkdirSync(sandboxRoot, { recursive: true })
-	const dataDir = mkdtempSync(join(sandboxRoot, 'marc-shell-test-'))
-	setDataDir(dataDir)
+	setDataDir(mkdtempSync(join(sandboxRoot, prefix)))
 	init()
+}
+
+test('sync only reports joined channel messages newer than the last sync', () => {
+	freshStore('marc-sync-cursor-test-')
+	const { agentId } = welcome()
+	const renamed = setAgentName(agentId, 'sync-agent')
+	assert.equal(renamed.ok, true)
+	const channel = '#sync-cursor'
+
+	post('human', channel, 'before join')
+	assert.deepEqual(sync('sync-agent').messages, [])
+
+	joinChannel('sync-agent', channel)
+	post('human', channel, 'after join')
+
+	const messages = sync('sync-agent').messages.map((message) => message.text)
+	assert.equal(messages.includes('before join'), false)
+	assert.equal(messages.includes(`joined ${channel}`), true)
+	assert.equal(messages.includes('after join'), true)
+})
+
+test('channel users include joined MCP agents', () => {
+	freshStore('marc-users-test-')
+	const { agentId } = welcome()
+	const renamed = setAgentName(agentId, 'present-agent')
+	assert.equal(renamed.ok, true)
+
+	joinChannel('present-agent', '#presence')
+
+	const users = getUsers('#presence')
+	assert.equal(users.length, 1)
+	assert.equal(users[0].name, 'present-agent')
+	assert.equal(typeof users[0].ts, 'number')
+})
+
+test('channel users ignore historical senders and stale memberships', () => {
+	freshStore('marc-stale-users-test-')
+	const { agentId } = welcome()
+	const renamed = setAgentName(agentId, 'ghost-agent')
+	assert.equal(renamed.ok, true)
+	joinChannel('ghost-agent', '#haunted')
+
+	assert.equal(
+		allMessages().some(
+			(message) =>
+				message.from === 'ghost-agent' && message.target === '#haunted' && message.type === 'join'
+		),
+		true
+	)
+
+	init()
+
+	assert.deepEqual(getUsers('#haunted'), [])
+	assert.equal(getAllChannels().find((channel) => channel.name === '#haunted')?.memberCount, 0)
+})
+
+test('shell channels persist configuration and stream transient output', async () => {
+	freshStore('marc-shell-test-')
 
 	const created = createShellChannel({
 		name: '$echo',

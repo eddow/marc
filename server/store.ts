@@ -66,7 +66,7 @@ export function welcome(): { agentId: string; briefing: Briefing | null } {
 	const id = generateId()
 	const name = `anon-${id}`
 	agents.set(id, { id, name })
-	data.lastSeen[name] = Date.now()
+	data.lastSeen[name] = now()
 	save()
 	storeEvents.emit('agents', getMcpAgents())
 	return { agentId: id, briefing: data.briefing }
@@ -137,16 +137,37 @@ let DATA_DIR = resolve(import.meta.dirname, '..', 'sandbox')
 let DATA_FILE = resolve(DATA_DIR, 'store.json')
 const MAX_MESSAGES = 500
 const MAX_TRANSIENT_MESSAGES = 1000
+let lastTimestamp = 0
 
-let data: StoreData = {
-	messages: [],
-	cursors: {},
-	joined: {},
-	lastSeen: {},
-	topics: {},
-	shellChannels: {},
-	briefing: null,
-	nextId: 1,
+function emptyStoreData(): StoreData {
+	return {
+		messages: [],
+		cursors: {},
+		joined: {},
+		lastSeen: {},
+		topics: {},
+		shellChannels: {},
+		briefing: null,
+		nextId: 1,
+	}
+}
+
+let data: StoreData = emptyStoreData()
+
+function now(): number {
+	const timestamp = Date.now()
+	lastTimestamp = Math.max(timestamp, lastTimestamp + 1)
+	return lastTimestamp
+}
+
+function storedTimestamps(): number[] {
+	return [
+		...data.messages.flatMap((m) => [m.ts, m.modified ?? 0]),
+		...transientMessages.flatMap((m) => [m.ts, m.modified ?? 0]),
+		...Object.values(data.topics).map((topic) => topic.ts),
+		...Object.values(data.lastSeen),
+		...(data.briefing ? [data.briefing.updatedAt] : []),
+	]
 }
 
 export function setDataDir(dir: string): void {
@@ -155,6 +176,7 @@ export function setDataDir(dir: string): void {
 }
 
 function load(): void {
+	data = emptyStoreData()
 	if (existsSync(DATA_FILE)) {
 		try {
 			const loaded = JSON.parse(readFileSync(DATA_FILE, 'utf-8'))
@@ -189,16 +211,7 @@ function load(): void {
 			}
 		} catch {
 			console.warn('Failed to parse store.json, starting fresh')
-			data = {
-				messages: [],
-				cursors: {},
-				joined: {},
-				lastSeen: {},
-				topics: {},
-				shellChannels: {},
-				briefing: null,
-				nextId: 1,
-			}
+			data = emptyStoreData()
 		}
 	}
 }
@@ -230,7 +243,7 @@ function emitTransientMessage(
 	text: string,
 	type: NonNullable<Message['type']>
 ): Message {
-	const message: Message = { id: nextMessageId(), from, target, text, ts: Date.now(), type }
+	const message: Message = { id: nextMessageId(), from, target, text, ts: now(), type }
 	transientMessages.push(message)
 	evictTransient()
 	storeEvents.emit('message', message)
@@ -302,11 +315,19 @@ function normalizeShellChannels() {
 	}
 }
 
+function clearJoinedChannels(): void {
+	data.joined = {}
+}
+
 // --- Public API ---
 
 export function init(): void {
+	agents.clear()
+	transientMessages.splice(0, transientMessages.length)
 	load()
 	normalizeShellChannels()
+	clearJoinedChannels()
+	lastTimestamp = Math.max(0, ...storedTimestamps())
 	save()
 }
 
@@ -317,11 +338,11 @@ export function post(
 	type: Message['type'] = 'text'
 ): number {
 	const id = nextMessageId()
-	const message: Message = { id, from, target, text, ts: Date.now(), type }
+	const message: Message = { id, from, target, text, ts: now(), type }
 	data.messages.push(message)
 	evict()
 	const isNew = data.lastSeen[from] === undefined
-	data.lastSeen[from] = Date.now()
+	data.lastSeen[from] = now()
 	save()
 	// Notify SSE streams of the single new message
 	storeEvents.emit('message', message)
@@ -333,7 +354,7 @@ export function errata(messageId: number, newText: string): boolean {
 	const msg = data.messages.find((m) => m.id === messageId)
 	if (!msg) return false
 	msg.text = newText
-	msg.modified = Date.now()
+	msg.modified = now()
 	save()
 	storeEvents.emit('message', msg)
 	return true
@@ -347,6 +368,7 @@ export interface NewsResult {
 
 export function sync(name: string): NewsResult {
 	const cursor = data.cursors[name] ?? 0
+	const syncedAt = now()
 	const joinedChannels = new Set(data.joined[name] || [])
 
 	// A message is "new" if its ts or modified timestamp exceeds the cursor
@@ -365,22 +387,16 @@ export function sync(name: string): NewsResult {
 	const changedBriefing =
 		data.briefing && data.briefing.updatedAt > cursor ? data.briefing : undefined
 
-	const allTimes = [...news.map(msgTime), ...Object.values(changedTopics).map((t) => t.ts)]
-	if (changedBriefing) allTimes.push(changedBriefing.updatedAt)
-	const maxTime = allTimes.length > 0 ? Math.max(...allTimes) : 0
+	data.cursors[name] = syncedAt
 
-	if (maxTime > cursor) {
-		data.cursors[name] = maxTime
-
-		// Delete private messages from the store once they are read (polled)
-		const privateMessageIds = new Set(news.filter((m) => m.target === name).map((m) => m.id))
-		if (privateMessageIds.size > 0) {
-			data.messages = data.messages.filter((m) => !privateMessageIds.has(m.id))
-		}
+	// Delete private messages from the store once they are read (polled)
+	const privateMessageIds = new Set(news.filter((m) => m.target === name).map((m) => m.id))
+	if (privateMessageIds.size > 0) {
+		data.messages = data.messages.filter((m) => !privateMessageIds.has(m.id))
 	}
 
 	// Always update lastSeen when getting news
-	data.lastSeen[name] = Date.now()
+	data.lastSeen[name] = syncedAt
 	save()
 
 	const result: NewsResult = { messages: news, topics: changedTopics }
@@ -417,6 +433,10 @@ export function join(agent: string, target: string): JoinResult {
 		history: messagesForTarget(target).slice(-50),
 		topic: data.topics[target] ?? null,
 	}
+}
+
+export function isJoined(agent: string, target: string): boolean {
+	return data.joined[agent]?.includes(target) ?? false
 }
 
 export function part(agent: string, target: string): void {
@@ -467,17 +487,12 @@ export function dismiss(agent: string): void {
 }
 
 export function getUsers(target: string): { name: string; ts?: number }[] {
-	const joined = new Set(
-		Object.entries(data.joined)
-			.filter(([_, channels]) => channels.includes(target))
-			.map(([agent]) => agent)
-	)
-	const senders = new Set(data.messages.filter((m) => m.target === target).map((m) => m.from))
-	const names = new Set([...joined, ...senders])
-	return Array.from(names).map((name) => ({
-		name,
-		ts: data.lastSeen[name],
-	}))
+	return Object.entries(data.joined)
+		.filter(([_, channels]) => channels.includes(target))
+		.map(([name]) => ({
+			name,
+			ts: data.lastSeen[name],
+		}))
 }
 
 /** All MCP agents: merges persisted lastSeen with ephemeral MCP sessions */
@@ -523,7 +538,7 @@ export function search(
 }
 
 export function setTopic(agent: string, target: string, text: string): Topic {
-	const topic: Topic = { text, setBy: agent, ts: Date.now() }
+	const topic: Topic = { text, setBy: agent, ts: now() }
 	data.topics[target] = topic
 	save()
 	storeEvents.emit('topic', { target, topic })
@@ -539,7 +554,7 @@ export function getBriefing(): Briefing | null {
 }
 
 export function setBriefing(text: string): Briefing {
-	const briefing: Briefing = { text, updatedAt: Date.now() }
+	const briefing: Briefing = { text, updatedAt: now() }
 	data.briefing = briefing
 	save()
 	storeEvents.emit('briefing', briefing)

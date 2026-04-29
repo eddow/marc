@@ -5,10 +5,10 @@ import { setupClient } from 'soup-chop'
 import { type MarcConfig, marcHttpUrl, resolveMarcConfig, writeMarcConfigFile } from './config.js'
 import { startMarcDaemon } from './daemon.js'
 import { marcPackageName } from './package-info.js'
-import type { CliInvocation } from './runtime.js'
+import { type CliInvocation, restartMarcDaemon } from './runtime.js'
 import { startMarcStdioBridge } from './stdio.js'
 
-type Command = 'serve' | 'stdio' | 'configure' | 'help'
+type Command = 'serve' | 'stdio' | 'restart-daemon' | 'configure' | 'help'
 
 interface ParsedCli {
 	command: Command
@@ -23,6 +23,7 @@ mARC — MCP Agent Relay Chat
 Usage:
   marc serve [options]
   marc stdio [options]
+  marc restart-daemon [options]
   marc configure windsurf [options]
 
 Options:
@@ -37,7 +38,13 @@ function parseCli(argv: string[]): ParsedCli {
 	const rawArgs = [...argv.slice(2)]
 	const first = rawArgs[0]
 	let command: Command = 'serve'
-	if (first === 'serve' || first === 'stdio' || first === 'configure' || first === 'help') {
+	if (
+		first === 'serve' ||
+		first === 'stdio' ||
+		first === 'restart-daemon' ||
+		first === 'configure' ||
+		first === 'help'
+	) {
 		command = first
 		rawArgs.shift()
 	}
@@ -121,6 +128,11 @@ switch (parsed.command) {
 			invocation: currentCliInvocation(),
 		})
 		break
+	case 'restart-daemon': {
+		const state = await restartMarcDaemon(parsed.config, currentCliInvocation())
+		console.log(`mARC daemon restarted at ${marcHttpUrl(parsed.config)} (pid ${state.pid})`)
+		break
+	}
 	case 'configure':
 		if (parsed.target !== 'windsurf') {
 			throw new Error(`Unsupported configure target: ${parsed.target ?? '(missing)'}`)

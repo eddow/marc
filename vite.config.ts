@@ -12,6 +12,7 @@ export default defineConfig({
 		}),
 	],
 	esbuild: false,
+	oxc: false,
 	resolve: {
 		alias: [
 			{ find: /^@sursaut\/core\/plugin$/, replacement: resolve(import.meta.dirname, '../sursaut/packages/core/src/plugin/index.ts') },
@@ -34,8 +35,8 @@ export default defineConfig({
 			{ find: /^@sursaut\/adapter-pico\/(.*)$/, replacement: resolve(import.meta.dirname, '../sursaut/packages/adapters/pico/src/$1') },
 
 			{ find: /^mutts\/debug$/, replacement: resolve(import.meta.dirname, '../mutts/debug/index.ts') },
-			{ find: /^mutts$/, replacement: resolve(import.meta.dirname, '../mutts/src/index.ts') },
-			{ find: /^mutts\/(.*)$/, replacement: resolve(import.meta.dirname, '../mutts/src/$1') },
+			{ find: /^mutts$/, replacement: resolve(import.meta.dirname, '../mutts') },
+			{ find: /^mutts\/(.*)$/, replacement: resolve(import.meta.dirname, '../mutts/$1') },
 		],
 		dedupe: ['mutts'],
 		preserveSymlinks: true,
@@ -46,8 +47,9 @@ export default defineConfig({
 	},
 	build: {
 		// Bundle everything for standalone deployment
-		rollupOptions: {
+		rolldownOptions: {
 			output: {
+				keepNames: true,
 				manualChunks: undefined, // Bundle all together
 			},
 		},

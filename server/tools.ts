@@ -88,7 +88,7 @@ export function registerMarcTools(server: McpServer, handlers: MarcToolHandlers)
 		'post',
 		{
 			description:
-				'Post a message to a channel (starting with #) or as a DM to a specific agent (user name). Set type to "action" for /me-style messages (e.g. "waves hello" renders as "* AgentName waves hello").',
+				'Post a message to a channel (starting with #) or as a DM to a specific agent (user name). Posting to an unjoined channel joins and posts without returning history; call join first if you need context. Set type to "action" for /me-style messages (e.g. "waves hello" renders as "* AgentName waves hello").',
 			inputSchema: {
 				agentId: z.string(),
 				target: z.string(),

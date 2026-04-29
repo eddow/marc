@@ -2,6 +2,14 @@ import { componentStyle, type DockviewWidgetProps } from '@sursaut'
 import { effect, reactive } from 'mutts'
 import MessageView from '../components/message'
 import { type Message, messages } from '../state'
+import { orderedStreamMessages } from '../stream-order'
+
+/** Module scope: survives StreamWidget re-invocation when `messages` (or other deps) re-render the panel. */
+const streamPanel = reactive({
+	agent: '',
+	newestFirst: false,
+})
+const streamDisplay = reactive<Message[]>([])
 
 componentStyle.css`
 .stream-panel {
@@ -63,40 +71,34 @@ componentStyle.css`
 `
 
 const StreamWidget = (_props: DockviewWidgetProps) => {
-	const state = reactive({ agent: '', reversed: false })
-	const displayMessages = reactive<Message[]>([])
-
 	effect`stream:displayMessages`(() => {
 		void messages.length
-		let msgs = [...messages]
-		if (state.agent.trim()) {
-			const lower = state.agent.toLowerCase()
-			msgs = msgs.filter((m) => m.from.toLowerCase().includes(lower))
-		}
-		if (state.reversed) msgs.reverse()
-		displayMessages.splice(0, displayMessages.length, ...msgs)
+		void streamPanel.newestFirst
+		void streamPanel.agent
+		const msgs = orderedStreamMessages(messages, streamPanel.agent, streamPanel.newestFirst)
+		streamDisplay.splice(0, streamDisplay.length, ...msgs)
 	})
 
 	return (
 		<div class="stream-panel">
 			<header class="stream-header">
 				<h3>All Messages</h3>
-				<span class="stream-summary">{displayMessages.length} visible</span>
+				<span class="stream-summary">{streamDisplay.length} visible</span>
 				<div class="stream-filters">
 					<input
 						type="text"
-						value={state.agent}
+						value={streamPanel.agent}
 						placeholder="Filter by agent..."
 						onInput={(e: Event) => {
-							state.agent = (e.target as HTMLInputElement).value
+							streamPanel.agent = (e.target as HTMLInputElement).value
 						}}
 					/>
 					<label>
 						<input
 							type="checkbox"
-							checked={state.reversed}
-							onInput={(e: Event) => {
-								state.reversed = (e.target as HTMLInputElement).checked
+							checked={streamPanel.newestFirst}
+							onChange={(e: Event) => {
+								streamPanel.newestFirst = (e.target as HTMLInputElement).checked
 							}}
 						/>
 						Newest first
@@ -104,8 +106,8 @@ const StreamWidget = (_props: DockviewWidgetProps) => {
 				</div>
 			</header>
 			<div class="stream-messages">
-				<for each={displayMessages}>{(msg) => <MessageView message={msg} />}</for>
-				<p class="stream-empty" if={displayMessages.length === 0}>
+				<for each={streamDisplay}>{(msg) => <MessageView message={msg} showTarget />}</for>
+				<p class="stream-empty" if={streamDisplay.length === 0}>
 					<em>No messages yet</em>
 				</p>
 			</div>

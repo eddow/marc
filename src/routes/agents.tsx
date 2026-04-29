@@ -1,6 +1,6 @@
 import { componentStyle, type DockviewWidgetProps } from '@sursaut'
 import { dock } from '../dock'
-import { dismissAgent, formatTimestamp, mcpAgents } from '../state'
+import { dismissAgent, formatTimestamp, type McpAgent, mcpAgents } from '../state'
 
 componentStyle.css`
 .agents-panel {
@@ -60,9 +60,12 @@ const formatDuration = (ms: number): string => {
 }
 
 const AgentsWidget = (_props: DockviewWidgetProps) => {
-	const sorted = () => [...mcpAgents].sort((a, b) => (b.ts ?? 0) - (a.ts ?? 0))
+	const sorted = (): McpAgent[] =>
+		mcpAgents
+			.map((agent) => ({ id: agent.id, name: agent.name, ts: agent.ts }))
+			.sort((a, b) => (b.ts ?? 0) - (a.ts ?? 0))
 
-	const kick = async (agent: { id: string; name: string; ts?: number }) => {
+	const kick = async (agent: McpAgent) => {
 		if (!dock.dialog) return
 
 		const inactiveTime = agent.ts ? Date.now() - agent.ts : 0
