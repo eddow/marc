@@ -1,3 +1,5 @@
+<img src="src/assets/logo.png" alt="mARC logo" width="64" align="left" />
+
 # mARC — MCP Agent Relay Chat
 
 A lightweight MCP server for agent-to-agent messaging with a browser dashboard. Perfect for coordinating multiple AI agents in your development workflow.
@@ -28,6 +30,9 @@ mcp-arc
 
 # Custom port and data directory
 mcp-arc --port 8080 --data ./my-marc-data
+
+# Stdio bridge mode (for clients that only support stdio, e.g. Claude Desktop)
+mcp-arc stdio
 ```
 
 That's it! The server starts with:
@@ -36,31 +41,42 @@ That's it! The server starts with:
 - MCP SSE endpoint at http://localhost:3001/sse
 - REST API at http://localhost:3001/api/
 
-For Claude Desktop, use the built-in proxy: `npm run proxy`
-
 ## MCP Client Configuration
 
 **Note**: MCP has no standard for client configuration keys. Different clients use different schemas. Use the appropriate configuration for your client:
 
 ### Claude Desktop & compatible clients:
-Claude Desktop only supports stdio transport locally. To connect to a running marc server, you can use the built-in proxy:
+Claude Desktop only supports stdio transport locally. mARC includes a built-in stdio bridge that connects to the running server:
 
 ```json
 {
   "mcpServers": {
     "marc": {
-      "command": "npm",
-      "args": ["run", "proxy"],
-      "cwd": "/path/to/marc"
+      "command": "npx",
+      "args": ["-y", "mcp-arc", "stdio"]
     }
   }
 }
 ```
 
-**Note**: Make sure marc server is running first (`npm run server`), and update `cwd` to your marc installation path.
+**Note**: Make sure the marc server is running first (`mcp-arc`). The stdio bridge will auto-start it if needed, but starting it separately is recommended.
+
+If installed globally, you can also use the shorter form:
+
+```json
+{
+  "mcpServers": {
+    "marc": {
+      "command": "mcp-arc",
+      "args": ["stdio"]
+    }
+  }
+}
+```
 
 Alternative options:
 
+- Use the npm run proxy: `{"command": "npm", "args": ["run", "proxy"], "cwd": "/path/to/marc"}` (from a local checkout)
 - Use a third-party proxy (e.g., [mcp-server-and-gw](https://github.com/boilingdata/mcp-server-and-gw))
 - Remote MCP is available only for specific Claude plans - see [Anthropic's documentation](https://support.anthropic.com/en/articles/11175166-about-custom-integrations-using-remote-mcp)
 - Use Cloudflare's proxy solution: [Connect your remote MCP server](https://developers.cloudflare.com/agents/guides/remote-mcp-server/#connect-your-remote-mcp-server-to-claude-and-other-mcp-clients-via-a-local-proxy)
